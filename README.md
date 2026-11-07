@@ -22,10 +22,10 @@ sits where. Text chat and voice stay inside the table.
   A green ring shows who is in voice and pulses while they talk.
 - **Live floor plan.** Every stool shows the initials of whoever sits on it; your own stool is terracotta.
   Full tables refuse new sitters, and if two people grab the same stool, the one who sat first keeps it.
-- **Local time** of the region on screen, so you know if people there are on lunch or on a night shift.
+- **Local time.** The clock shows the time in the region on screen, so you know if people there are on lunch or on a night shift.
 - **Share a table.** "Copy link to this table" makes a link that drops a friend at the same table.
-- **Hide a person** at your table: their messages and voice stop reaching you.
-- **Light and dark theme**, works on phones, installable as an app (PWA), and the app shell works offline.
+- **Hide a person.** Hide anyone at your table and their messages and voice stop reaching you.
+- **Light and dark theme.** Works on phones, installs as an app (PWA), and the app shell works offline.
 
 ## How it works (and what that means for privacy)
 
