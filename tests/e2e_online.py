@@ -21,6 +21,7 @@ ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "tests" / "out"
 OUT.mkdir(parents=True, exist_ok=True)
 PROXY = sys.argv[sys.argv.index("--proxy") + 1] if "--proxy" in sys.argv else None
+LIVE_URL = sys.argv[sys.argv.index("--url") + 1] if "--url" in sys.argv else None
 
 
 class Quiet(http.server.SimpleHTTPRequestHandler):
@@ -37,9 +38,8 @@ def serve():
 
 
 def main():
-    port = serve()
-    region = "test-" + str(int(time.time()))
-    url = f"http://127.0.0.1:{port}/index.html"
+    url = LIVE_URL or f"http://127.0.0.1:{serve()}/index.html"
+    region = "XX/worldwide"
     args = ["--use-fake-device-for-media-stream", "--use-fake-ui-for-media-stream", "--autoplay-policy=no-user-gesture-required"]
     if PROXY:
         args += [f"--proxy-server={PROXY}", "--proxy-bypass-list=127.0.0.1;localhost"]
@@ -62,7 +62,7 @@ def main():
                 "localStorage.setItem('nk:place', JSON.stringify({country:'XX', region:'worldwide'}));" % json.dumps(name))
             page = context.new_page()
             page.on("pageerror", lambda exc, n=name: errors.append(f"{n}: {exc}"))
-            page.goto(url + "#XX/worldwide/lounge", wait_until="domcontentloaded")
+            page.goto(url + "#XX/worldwide/lounge", wait_until="domcontentloaded", timeout=90000)
             pages[name] = page
         rina, dimas, sari = pages["Rina"], pages["Dimas"], pages["Sari"]
 
