@@ -4,7 +4,7 @@
 //  - local (?local=1): BroadcastChannel between tabs of one browser. Used by the tests
 //    and for trying the app alone. Text only, no voice.
 
-import { joinRoom as joinNostr, selfId as nostrSelfId } from "./vendor/trystero-nostr.mjs";
+import { joinRoom as joinNostr, selfId as nostrSelfId, getRelaySockets } from "./vendor/trystero-nostr.mjs";
 
 const APP_ID = "juw12-nongkrong-v1";
 const params = new URLSearchParams(location.search);
@@ -12,6 +12,15 @@ export const LOCAL = params.has("local");
 
 const randomId = () => Array.from(crypto.getRandomValues(new Uint8Array(10)), (b) => b.toString(36).padStart(2, "0")).join("").slice(0, 16);
 export const myId = LOCAL ? randomId() : nostrSelfId;
+
+// How many signalling relays this browser can reach right now (online mode only).
+export function relayHealth() {
+  if (LOCAL) {
+    return { open: 1, total: 1 };
+  }
+  const sockets = Object.values(getRelaySockets ? getRelaySockets() : {});
+  return { open: sockets.filter((s) => s.readyState === 1).length, total: sockets.length };
+}
 
 export function openRoom(roomId) {
   if (LOCAL) {

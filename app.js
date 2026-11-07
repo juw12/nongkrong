@@ -1,5 +1,5 @@
 import { COUNTRIES, LAYOUTS, findCountry, findRegion, findVenue, tablesFor, guessPlace } from "./data.js";
-import { openRoom, myId, LOCAL } from "./net.js";
+import { openRoom, myId, LOCAL, relayHealth } from "./net.js";
 
 const $ = (selector) => document.querySelector(selector);
 
@@ -61,6 +61,7 @@ const timeIn = (tz) => {
   }
 };
 
+const startedAt = Date.now();
 let toastTimer = 0;
 function toast(text) {
   const el = $("#toast");
@@ -581,7 +582,11 @@ function renderTables() {
       : el("div", { class: "top-r", style: `width:${size.w}px;height:${size.w}px` }, el("b", { text: String(t.n) }));
 
     const freeCount = t.seats - sitters.length;
-    const cap = mine ? "You are here" : full ? "Full" : sitters.length === 0 ? `Empty, ${t.seats} seats` : `${freeCount} of ${t.seats} seats free`;
+    const hasCompany = sitters.length > 0;
+    const cap = mine ? "You are here"
+      : full ? "Full"
+      : hasCompany ? `Join them, ${freeCount} ${freeCount === 1 ? "seat" : "seats"} free`
+      : `Sit here, ${t.seats} seats`;
     const names = sitters.map(([id, p]) => (id === myId ? "You" : p.name)).join(", ");
     const label = `${tableName(t.n)}. ${cap}.${names ? " " + names + "." : ""}${mine ? " Open your table." : full ? "" : " Sit here."}`;
 
@@ -594,7 +599,7 @@ function renderTables() {
     }, [
       el("div", { class: "plate", style: `width:${plateSize.width}px;height:${plateSize.height}px` }, [top, ...stools]),
       el("div", { class: "names", text: names || "\u00a0" }),
-      el("div", { class: "cap", text: cap }),
+      el("div", { class: mine || full ? "cap" : hasCompany ? "cap free join" : "cap free", text: cap }),
     ]);
   });
   tablesEl.replaceChildren(...cards);
@@ -616,25 +621,27 @@ function renderPanel() {
     : `${venue().name}. Only the ${count} people at this table can read and hear it.`;
 
   const voiceBtn = $("#voiceBtn");
-  voiceBtn.textContent = state.voice.on ? "Turn off voice" : "Turn on voice";
-  voiceBtn.className = state.voice.on ? "btn on" : "btn primary";
+  voiceBtn.textContent = LOCAL ? "Voice off in test mode" : state.voice.on ? "Turn off voice" : "Turn on voice";
+  voiceBtn.className = LOCAL ? "btn" : state.voice.on ? "btn on" : "btn primary";
+  voiceBtn.disabled = LOCAL;
   voiceBtn.setAttribute("aria-pressed", String(state.voice.on));
   const muteBtn = $("#muteBtn");
   muteBtn.hidden = !state.voice.on;
   muteBtn.textContent = state.voice.muted ? "Unmute" : "Mute";
   muteBtn.setAttribute("aria-pressed", String(state.voice.muted));
   const note = $("#voiceNote");
-  note.hidden = !LOCAL;
-  note.textContent = LOCAL ? "Local test mode: text only. Voice works in the online version." : "";
+  note.hidden = true;
+  note.textContent = "";
+  voiceBtn.title = LOCAL ? "Open the normal link (without ?local=1) to talk by voice." : "";
 
   const list = $("#members");
   list.replaceChildren(...sitters.map(([id, p]) => {
     const isMe = id === myId;
-    const tag = p.voice ? "in voice" : "text only";
+    const tag = p.voice ? "in voice" : "";
     const blocked = state.blocked.has(id);
-    return el("li", {}, [
+    return el("li", { class: p.voice ? "in-voice" : null }, [
       el("span", { class: "who", text: isMe ? `${p.name} (you)` : p.name }),
-      el("span", { class: "tag", text: blocked ? "hidden" : tag }),
+      (blocked || tag) ? el("span", { class: "tag", text: blocked ? "hidden" : tag }) : null,
       isMe ? null : el("button", {
         type: "button",
         text: blocked ? "Show" : "Hide",
@@ -679,13 +686,18 @@ function renderIntro() {
   const here = everyone().filter(([, p]) => p.venue === v.id).length;
   const tables = tablesFor(v).length;
   $("#venueName").textContent = v.name;
-  $("#venueNote").textContent = `${v.note} ${here === 1 ? "Just you so far" : `${here} people here`}, ${tables} tables, ${LAYOUTS[v.layout].label.toLowerCase()}.`;
+  $("#venueNote").textContent = `${here === 1 ? "Just you so far" : `${here} people here`} at ${tables} tables. ${LAYOUTS[v.layout].label}.`;
+  $("#counterText").textContent = v.note;
   $("#clockLabel").textContent = reg.tz === "UTC" ? "UTC" : `${reg.name} time`;
   $("#clock").textContent = timeIn(reg.tz);
   document.title = `${v.name}, ${reg.name} - Nongkrong`;
   const total = everyone().length;
+  const health = relayHealth();
+  const blocked = !LOCAL && total === 1 && health.total > 0 && health.open === 0 && Date.now() - startedAt > 15000;
+  $("#status").dataset.level = blocked ? "warn" : "info";
   $("#status").textContent = LOCAL
     ? `Local test mode, ${total} in ${reg.name}`
+    : blocked ? "Can't reach the meeting relays. This network may block them."
     : total === 1 ? `Online, nobody else in ${reg.name} yet` : `Online, ${total} in ${reg.name}`;
   const hint = $("#hint");
   const alone = total === 1;
@@ -697,6 +709,7 @@ function render() {
   if (!state.country) {
     return;
   }
+  $("#nameBtn").textContent = state.name || "Name";
   renderVenues();
   renderIntro();
   renderTables();
@@ -861,6 +874,11 @@ function init() {
     }
   }, 15000);
   setInterval(() => announce(), 20000);
+  setInterval(() => {
+    if (state.country) {
+      renderIntro();
+    }
+  }, 5000);
 
   $("#country").value = place.country;
   fillRegions($("#region"), place.country, place.region);

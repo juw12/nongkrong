@@ -11,6 +11,8 @@ sits where. Text chat and voice stay inside the table.
 
 ![Nongkrong floor plan with a table open](docs/screenshot.png)
 
+<img src="docs/phone.png" alt="Nongkrong on a phone, seated at Meja 1" width="300">
+
 ## What it does
 
 - **23 countries plus "Anywhere", 107 cities and regions, 69 places.** Each place type comes from the local

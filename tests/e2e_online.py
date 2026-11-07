@@ -46,14 +46,14 @@ def main():
     results = {"region": region}
     errors = []
     with sync_playwright() as p:
-        browsers = []
+        try:
+            browser = p.chromium.launch(channel="chrome", args=args)
+        except Exception:
+            browser = p.chromium.launch(args=args)
+        browsers = [browser]
         pages = {}
         for name in ("Rina", "Dimas", "Sari"):
-            try:
-                browser = p.chromium.launch(channel="chrome", args=args)
-            except Exception:
-                browser = p.chromium.launch(args=args)
-            browsers.append(browser)
+            # Each context is a separate profile: no shared storage, no BroadcastChannel.
             context = browser.new_context(viewport={"width": 1280, "height": 860}, permissions=["microphone"])
             context.route("**/fonts.g*/**", lambda route: route.abort())
             # The test people sit in Anywhere > Open lounge for under a minute.
@@ -62,7 +62,8 @@ def main():
                 "localStorage.setItem('nk:place', JSON.stringify({country:'XX', region:'worldwide'}));" % json.dumps(name))
             page = context.new_page()
             page.on("pageerror", lambda exc, n=name: errors.append(f"{n}: {exc}"))
-            page.goto(url + "#XX/worldwide/lounge", wait_until="domcontentloaded", timeout=90000)
+            page.goto(url + "#XX/worldwide/lounge", wait_until="commit", timeout=90000)
+            page.wait_for_selector(".t", timeout=90000)
             pages[name] = page
         rina, dimas, sari = pages["Rina"], pages["Dimas"], pages["Sari"]
 

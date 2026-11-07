@@ -34,7 +34,7 @@
   </div>
   <div class="top-right">
     <span id="status" class="status" aria-live="polite">Connecting</span>
-    <button id="nameBtn" class="btn ghost small" type="button">Name</button>
+    <button id="nameBtn" class="btn ghost small" type="button" aria-label="Change your name or city">Name</button>
     <button id="themeBtn" class="btn ghost small" type="button" aria-label="Switch colour theme">Dark</button>
   </div>
 </header>
@@ -55,6 +55,7 @@
       </div>
       <div class="clock"><b id="clock">--:--</b><span id="clockLabel">local time</span></div>
     </div>
+    <div class="counter" aria-label="About this place"><span class="counter-label">Counter</span><span id="counterText"></span></div>
     <div class="tables" id="tables"></div>
     <p class="hint" id="hint" hidden></p>
   </section>
