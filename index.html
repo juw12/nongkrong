@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Nongkrong - sit at a table, talk to the people at it</title>
+<meta name="description" content="Virtual warung, kopitiam, pub or cafe for your city. Sit at a table; only the people at your table can read your messages or hear your voice. No account, no server.">
+<meta name="theme-color" content="#2d4a3e">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="app.css">
+<script>
+  try {
+    const savedTheme = JSON.parse(localStorage.getItem("nk:theme"));
+    if (savedTheme) {
+      document.documentElement.dataset.theme = savedTheme;
+    }
+  } catch (error) {}
+</script>
+<script type="module" src="app.js"></script>
+</head>
+<body>
+<a class="skip" href="#floor">Skip to tables</a>
+<div class="checker" aria-hidden="true"></div>
+<header class="top">
+  <a class="brand" href="./" aria-label="Nongkrong home">nong<span>krong</span></a>
+  <div class="place">
+    <label class="pill-select"><span class="sr">Country</span><select id="country"></select></label>
+    <label class="pill-select"><span class="sr">City or region</span><select id="region"></select></label>
+  </div>
+  <div class="top-right">
+    <span id="status" class="status" aria-live="polite">Connecting</span>
+    <button id="nameBtn" class="btn ghost small" type="button">Name</button>
+    <button id="themeBtn" class="btn ghost small" type="button" aria-label="Switch colour theme">Dark</button>
+  </div>
+</header>
+
+<nav class="venues" id="venues" aria-label="Places in this city"></nav>
+
+<div class="switch" role="tablist" aria-label="View">
+  <button type="button" role="tab" id="tabFloor" aria-selected="true">Tables</button>
+  <button type="button" role="tab" id="tabTable" aria-selected="false">My table</button>
+</div>
+
+<main id="main" data-view="floor">
+  <section class="floor" id="floor" aria-labelledby="venueName" tabindex="-1">
+    <div class="intro">
+      <div>
+        <h1 id="venueName">Warung kopi</h1>
+        <p id="venueNote"></p>
+      </div>
+      <div class="clock"><b id="clock">--:--</b><span id="clockLabel">local time</span></div>
+    </div>
+    <div class="tables" id="tables"></div>
+    <p class="hint" id="hint" hidden></p>
+  </section>
+
+  <aside class="panel" id="panel" aria-label="Your table">
+    <div id="panelEmpty" class="empty">
+      <h2>Pick a table</h2>
+      <p>Tap a table with a free seat. Only the people sitting at the same table can read what you write or hear your voice.</p>
+      <ol class="how">
+        <li><b>Sit down.</b> Your stool turns terracotta.</li>
+        <li><b>Say hi</b> in text, or turn on voice.</li>
+        <li><b>Leave</b> whenever you like. Nothing is saved.</li>
+      </ol>
+      <p class="fine">No account and no server. Your name stays on this device; messages go browser to browser.</p>
+    </div>
+
+    <div id="panelSeated" class="seated" hidden>
+      <div class="ph">
+        <h2 id="tableTitle">Meja 1</h2>
+        <p id="tableSub">Only the people at this table can read and hear it.</p>
+        <div class="actions">
+          <button id="voiceBtn" class="btn primary" type="button">Turn on voice</button>
+          <button id="muteBtn" class="btn" type="button" hidden>Mute</button>
+          <button id="leaveBtn" class="btn" type="button">Leave table</button>
+        </div>
+        <p id="voiceNote" class="voice-note" hidden></p>
+        <ul class="members" id="members" aria-label="People at this table"></ul>
+      </div>
+      <div class="log" id="log" aria-live="polite" aria-label="Table chat"></div>
+      <form class="say" id="sayForm" autocomplete="off">
+        <label class="sr" for="sayInput">Message</label>
+        <input id="sayInput" maxlength="400" placeholder="Message this table">
+        <button class="btn" type="submit">Send</button>
+      </form>
+      <button id="copyBtn" class="link" type="button">Copy link to this table</button>
+    </div>
+  </aside>
+</main>
+
+<dialog id="welcome" aria-labelledby="welcomeTitle">
+  <form method="dialog" id="welcomeForm">
+    <h2 id="welcomeTitle">Mari nongkrong</h2>
+    <p>Pick your city, then sit at any table in a warung, kopitiam, pub or cafe near you. Only your table can hear you.</p>
+    <label class="field">What should people call you?
+      <input id="nameInput" required maxlength="24" placeholder="Your name">
+    </label>
+    <div class="two">
+      <label class="field">Country<select id="wCountry"></select></label>
+      <label class="field">City or region<select id="wRegion"></select></label>
+    </div>
+    <button class="btn primary wide" id="enterBtn" type="submit">Go in</button>
+    <p class="fine">No account. Your name is kept on this device only.</p>
+  </form>
+</dialog>
+
+<div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+<div id="audio" hidden></div>
+<noscript><p class="noscript">Nongkrong needs JavaScript to connect you to other people.</p></noscript>
+</body>
+</html>
