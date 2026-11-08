@@ -407,10 +407,90 @@ function buildTable(t) {
       group.add(cyl(0.18, 0.2, 0.03, "#2a2a28", s.x, 0.015, s.z, 16));
     });
   }
+  addTabletop(group, t);
   group.traverse((node) => {
     node.userData.table = t.n;
   });
   return group;
+}
+
+// Cups, a condiment set, a plate of gorengan and a small jar lamp, so tables look used.
+const TABLE_TOP = { round: 0.79, long: 0.775, square: 0.775, plastic: 0.57, low: 0.345, bar: 1.045 };
+function addTabletop(group, t) {
+  const top = TABLE_TOP[t.kind];
+  const seed = hash("top" + t.n);
+  const cups = t.kind === "bar" ? t.seatsPos.filter((_, i) => (seed >> i) & 1) : t.seatsPos.filter((_, i) => ((seed >> i) & 3) === 0).slice(0, 3);
+  for (const s of cups) {
+    const k = t.kind === "bar" ? 0.55 : 0.45;
+    const cx = t.kind === "bar" ? s.x : s.x + (t.x - s.x) * k;
+    const cz = t.kind === "bar" ? t.z + 0.2 : s.z + (t.z - s.z) * k;
+    group.add(cyl(0.045, 0.038, 0.11, "#e8eef0", cx, top + 0.055, cz, 12, { transparent: true, opacity: 0.55, roughness: 0.1 }));
+    group.add(cyl(0.04, 0.035, 0.07, t.kind === "low" ? "#c58b2a" : "#3b2416", cx, top + 0.04, cz, 12));
+  }
+  if (t.kind !== "bar") {
+    // condiment set: kecap bottle, sambal jar, toothpick pot
+    group.add(cyl(0.025, 0.03, 0.16, "#2a1d16", t.x + 0.08, top + 0.08, t.z - 0.06, 10));
+    group.add(cyl(0.035, 0.035, 0.07, "#a63d24", t.x - 0.02, top + 0.035, t.z - 0.1, 10));
+    group.add(cyl(0.022, 0.022, 0.06, "#c9b48a", t.x - 0.1, top + 0.03, t.z - 0.04, 8));
+    // jar lamp, glows at night
+    const glass = cyl(0.05, 0.05, 0.1, "#fff3d6", t.x - 0.04, top + 0.05, t.z + 0.1, 12, { emissive: "#ffc46b", emissiveIntensity: 0.4, transparent: true, opacity: 0.9 });
+    glass.castShadow = false;
+    glass.userData.lamp = true;
+    group.add(glass);
+  }
+  if (t.kind === "long" || t.kind === "square") {
+    // plate of gorengan
+    group.add(cyl(0.16, 0.13, 0.02, "#f1efe9", t.x + 0.32, top + 0.01, t.z + 0.05, 20));
+    for (let i = 0; i < 4; i++) {
+      const piece = box(0.09, 0.035, 0.05, i % 2 ? "#c58b2a" : "#b5652e", t.x + 0.28 + (i % 2) * 0.08, top + 0.035 + Math.floor(i / 2) * 0.02, t.z + 0.02 + Math.floor(i / 2) * 0.05);
+      piece.rotation.y = i * 0.7;
+      group.add(piece);
+    }
+  }
+}
+
+const MENUS = {
+  warkop: ["Kopi tubruk", "Kopi susu", "Teh manis", "Gorengan", "Indomie"],
+  angkringan: ["Wedang jahe", "Kopi joss", "Nasi kucing", "Sate usus", "Teh nasgitel"],
+  kafe: ["Es kopi susu", "Americano", "Teh tarik", "Roti bakar"],
+  kopitiam: ["Kopi O", "Kopi C", "Teh tarik", "Kaya toast", "Half-boiled eggs"],
+  mamak: ["Teh tarik", "Roti canai", "Maggi goreng", "Milo ais"],
+  hawker: ["Kopi", "Teh", "Chicken rice", "Char kway teow"],
+  kissaten: ["Blend coffee", "Hand drip", "Toast", "Pudding"],
+  izakaya: ["Highball", "Edamame", "Yakitori", "Karaage"],
+  streetfood: ["Cha yen", "Pad kra pao", "Moo ping", "Mango sticky rice"],
+  pub: ["Pint", "Lemon squash", "Chips", "Pie"],
+};
+
+function menuTexture(venue) {
+  const lines = MENUS[venue.id] || ["Kopi", "Teh", "Snacks"];
+  return canvasTexture(512, 640, (c, w, h) => {
+    c.fillStyle = "#24372f";
+    c.fillRect(0, 0, w, h);
+    c.strokeStyle = "#8a5a3b";
+    c.lineWidth = 22;
+    c.strokeRect(0, 0, w, h);
+    c.fillStyle = "#f4efe6";
+    c.textAlign = "center";
+    c.font = `64px ${SERIF}`;
+    c.fillText("Menu", w / 2, 110);
+    c.font = `500 40px ${FONT}`;
+    lines.forEach((line, i) => c.fillText(line, w / 2, 200 + i * 78));
+  });
+}
+
+function bunting(group, x0, x1, y, z) {
+  const colors = ["#a63d24", "#2d4a3e", "#d9a62e", "#f4efe6"];
+  const count = Math.floor((x1 - x0) / 0.32);
+  for (let i = 0; i < count; i++) {
+    const x = x0 + (i + 0.5) * ((x1 - x0) / count);
+    const sag = Math.sin(((i + 0.5) / count) * Math.PI) * 0.18;
+    const flag = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.22, 3), mat(colors[i % colors.length], { side: THREE.DoubleSide }));
+    flag.position.set(x, y - sag - 0.11, z);
+    flag.rotation.x = Math.PI;
+    flag.scale.z = 0.15;
+    group.add(flag);
+  }
 }
 
 function plant(x, z, scale = 1) {
@@ -496,6 +576,10 @@ function buildPlace(plan, venue) {
   const sign = new THREE.Mesh(new THREE.PlaneGeometry(4.2, 0.82), new THREE.MeshStandardMaterial({ map: signTexture(venue.name, layout), roughness: 0.7 }));
   sign.position.set(0, 2.75, backZ + 0.03);
   group.add(sign);
+  const menu = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 1.12), new THREE.MeshStandardMaterial({ map: menuTexture(venue), roughness: 0.9 }));
+  menu.position.set(width / 2 - 1.15, 1.75, backZ + 0.03);
+  group.add(menu);
+  bunting(group, -width / 2 + 0.3, width / 2 - 0.3, 3.15, backZ + 0.25);
   if (layout !== "counter") {
     const cz = backZ + 0.7;
     if (layout === "mat" || layout === "street") {
@@ -590,6 +674,27 @@ function buildPlace(plan, venue) {
   for (const t of plan.tables) {
     group.add(buildTable(t));
   }
+  group.traverse((node) => {
+    if (node.userData.lamp) {
+      lamps.push(node);
+    }
+  });
+
+  // the owner minds the counter (no name tag, not a player)
+  const ownerLooks = { skin: "#b98a68", shirt: layout === "counter" ? "#2a2a28" : "#f1efe9", pants: "#3b3a38", hair: "#222120" };
+  const owner = makeAvatar(ownerLooks, "", false);
+  owner.root.remove(owner.label);
+  owner.label.material.map?.dispose();
+  poseStanding(owner, 0, false);
+  owner.arms[0].rotation.x = -0.5;
+  if (layout === "counter") {
+    owner.root.position.set(-1.2, 0, backZ + 0.4);
+  } else {
+    const halfCounter = layout === "mat" || layout === "street" ? 1.1 : layout === "garden" ? 1.7 : 1.8;
+    owner.root.position.set(-(halfCounter + 0.45), 0, backZ + 0.75);
+    owner.root.rotation.y = 0.35;
+  }
+  group.add(owner.root);
   return { group, lamps };
 }
 
@@ -640,7 +745,7 @@ function makeAvatar(looks, name, isMe) {
   ring.visible = isMe;
   root.add(ring);
 
-  const label = textSprite(isMe ? `${name} (you)` : name, isMe ? { background: "rgba(166,61,36,0.92)" } : {});
+  const label = textSprite(name, isMe ? { background: "rgba(166,61,36,0.95)" } : {});
   label.position.y = 1.95;
   root.add(label);
 
@@ -712,6 +817,8 @@ export function createWorld(container, handlers = {}) {
     night.push(light);
   }
 
+  let tableLights = [];
+
   const avatarsGroup = new THREE.Group();
   scene.add(avatarsGroup);
   const marker = mesh(new THREE.RingGeometry(0.16, 0.24, 24), new THREE.MeshBasicMaterial({ color: ACCENT, transparent: true, opacity: 0, side: THREE.DoubleSide }), 0, 0.03, 0, false);
@@ -761,6 +868,9 @@ export function createWorld(container, handlers = {}) {
     lamps.forEach((lamp) => {
       lamp.material.emissiveIntensity = isNight ? 2.2 : dusk ? 1.4 : 0.6;
     });
+    tableLights.forEach((light) => {
+      light.intensity = isNight ? 3.2 : dusk ? 1.6 : 0;
+    });
     renderer.toneMappingExposure = 1;
   }
 
@@ -772,7 +882,7 @@ export function createWorld(container, handlers = {}) {
   function tableLabelText(t, sitters, mineHere) {
     const free = t.seats - sitters;
     const dot = "\u00b7";
-    return mineHere ? `${t.label} ${dot} you` : free <= 0 ? `${t.label} ${dot} full` : sitters ? `${t.label} ${dot} join, ${free} free` : `${t.label} ${dot} ${t.seats} seats`;
+    return mineHere ? `Only ${t.label} hears you` : free <= 0 ? `${t.label} ${dot} full` : sitters ? `${t.label} ${dot} ${free} free` : `${t.label} ${dot} ${t.seats} seats`;
   }
 
   function setVenue({ layout, tables, tableWord, venue, spawn }) {
@@ -804,6 +914,13 @@ export function createWorld(container, handlers = {}) {
     night[0].position.set(-plan.width / 4, 2.4, -plan.depth / 6);
     night[1].position.set(plan.width / 4, 2.4, -plan.depth / 6);
     night[2].position.set(0, 2.4, plan.depth / 4);
+    tableLights.forEach((light) => scene.remove(light));
+    tableLights = plan.tables.slice(0, 6).map((t) => {
+      const light = new THREE.PointLight("#ffbf75", 0, 3.6, 1.8);
+      light.position.set(t.x, (TABLE_TOP[t.kind] || 0.75) + 0.9, t.z);
+      scene.add(light);
+      return light;
+    });
 
     const start = spawn || plan.spawn;
     me.x = start.x + (Math.random() - 0.5) * 1.6;
@@ -821,10 +938,38 @@ export function createWorld(container, handlers = {}) {
     moveDirty = true;
   }
 
+  // A warm circle on the floor around my table: the table's private zone.
+  const zone = new THREE.Group();
+  const zoneFill = mesh(new THREE.CircleGeometry(1, 48), new THREE.MeshBasicMaterial({ color: ACCENT, transparent: true, opacity: 0.16, depthWrite: false }), 0, 0.012, 0, false);
+  const zoneEdge = mesh(new THREE.RingGeometry(0.97, 1, 64), new THREE.MeshBasicMaterial({ color: ACCENT, transparent: true, opacity: 0.75, depthWrite: false, side: THREE.DoubleSide }), 0, 0.014, 0, false);
+  zoneFill.rotation.x = -Math.PI / 2;
+  zoneEdge.rotation.x = -Math.PI / 2;
+  zone.add(zoneFill, zoneEdge);
+  zone.visible = false;
+  scene.add(zone);
+
+  function placeZone(tableNo) {
+    const t = plan?.tables.find((x) => x.n === tableNo);
+    if (!t) {
+      zone.visible = false;
+      return;
+    }
+    const xs = t.seatsPos.map((s) => s.x).concat(t.x);
+    const zs = t.seatsPos.map((s) => s.z).concat(t.z);
+    const cx = (Math.min(...xs) + Math.max(...xs)) / 2;
+    const cz = (Math.min(...zs) + Math.max(...zs)) / 2;
+    const rx = (Math.max(...xs) - Math.min(...xs)) / 2 + 0.55;
+    const rz = (Math.max(...zs) - Math.min(...zs)) / 2 + 0.55;
+    zone.position.set(cx, 0, cz);
+    zone.scale.set(rx, 1, rz);
+    zone.visible = true;
+  }
+
   function updateTableLabels(occupancy, myTable) {
     if (!plan) {
       return;
     }
+    placeZone(myTable);
     for (const t of plan.tables) {
       const sitters = occupancy.get(t.n) || 0;
       const text = tableLabelText(t, sitters, myTable === t.n);
@@ -846,7 +991,7 @@ export function createWorld(container, handlers = {}) {
       sprite.position.set(t.x, t.kind === "bar" ? 1.3 : t.kind === "low" ? 0.6 : t.kind === "plastic" ? 0.8 : 1.0, t.kind === "bar" ? t.z + 0.1 : t.z);
       sprite.material.depthTest = false;
       sprite.renderOrder = 5;
-      sprite.visible = myTable !== t.n;
+      sprite.renderOrder = myTable === t.n ? 6 : 5;
       sprite.userData.table = t.n;
       scene.add(sprite);
       tableLabels.set(t.n, { sprite, text });
@@ -1223,6 +1368,47 @@ export function createWorld(container, handlers = {}) {
 
   // ---------- frame loop ----------
 
+  // Keep name tags from sitting on top of each other: push the farther one up in screen space.
+  const projected = new THREE.Vector3();
+  function separateLabels() {
+    const height = canvas.clientHeight || 1;
+    const width = canvas.clientWidth || 1;
+    const items = [];
+    for (const a of avatars.values()) {
+      const baseY = a.sitH != null ? a.sitH + 0.06 + 1.12 : 1.95;
+      projected.set(a.x, baseY, a.z);
+      const distance = camera.position.distanceTo(projected);
+      const worldPerPixel = (2 * distance * Math.tan((camera.fov * Math.PI) / 360)) / height;
+      projected.project(camera);
+      items.push({
+        a, baseY, worldPerPixel,
+        x: ((projected.x + 1) / 2) * width,
+        y: ((1 - projected.y) / 2) * height,
+        w: a.label.scale.x / worldPerPixel,
+        h: a.label.scale.y / worldPerPixel,
+        depth: distance,
+      });
+    }
+    items.sort((p, q) => p.depth - q.depth);
+    const placed = [];
+    for (const item of items) {
+      let lift = 0;
+      for (let guard = 0; guard < 6; guard++) {
+        const top = item.y - lift;
+        const hit = placed.find((o) => Math.abs(o.x - item.x) < (o.w + item.w) / 2 + 2 && Math.abs(o.top - top) < (o.h + item.h) / 2 + 1);
+        if (!hit) {
+          break;
+        }
+        lift = item.y - (hit.top - (hit.h + item.h) / 2 - 2);
+      }
+      placed.push({ x: item.x, top: item.y - lift, w: item.w, h: item.h });
+      item.a.label.position.y = item.baseY + lift * item.worldPerPixel;
+      if (item.a.bubble) {
+        item.a.bubble.position.y = item.a.label.position.y + 0.17 + (item.a.bubble.userData.lift || 0);
+      }
+    }
+  }
+
   const lookAt = new THREE.Vector3();
   function frame() {
     requestAnimationFrame(frame);
@@ -1260,6 +1446,7 @@ export function createWorld(container, handlers = {}) {
         }
       }
     }
+    separateLabels();
     marker.material.opacity = Math.max(0, marker.material.opacity - dt * 0.9);
 
     // Look a little ahead of me into the room, or at my table once I sit down.
