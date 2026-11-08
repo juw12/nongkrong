@@ -243,7 +243,7 @@ function textSprite(text, { color = "#ffffff", background = "rgba(34,33,32,0.78)
   return sprite;
 }
 
-function bubbleSprite(text) {
+function bubbleSprite(text, name = "") {
   const words = String(text).split(/\s+/).filter(Boolean);
   const lines = [];
   let line = "";
@@ -266,10 +266,14 @@ function bubbleSprite(text) {
   const size = 34;
   const canvas = document.createElement("canvas");
   const context = canvas.getContext("2d");
+  const nameSize = 26;
+  const header = name ? nameSize + 10 : 0;
+  context.font = `700 ${nameSize}px ${FONT}`;
+  const nameWidth = name ? context.measureText(name).width : 0;
   context.font = `500 ${size}px ${FONT}`;
-  const textWidth = Math.max(...lines.map((l) => context.measureText(l).width), 40);
+  const textWidth = Math.max(...lines.map((l) => context.measureText(l).width), nameWidth, 40);
   const width = Math.ceil(textWidth) + 44;
-  const height = lines.length * (size + 8) + 30 + 18;
+  const height = lines.length * (size + 8) + 30 + 18 + header;
   canvas.width = width;
   canvas.height = height;
   context.font = `500 ${size}px ${FONT}`;
@@ -285,7 +289,12 @@ function bubbleSprite(text) {
   context.stroke();
   context.fillStyle = "#222120";
   context.textBaseline = "top";
-  lines.forEach((l, i) => context.fillText(l, 22, 16 + i * (size + 8)));
+  lines.forEach((l, i) => context.fillText(l, 22, 16 + header + i * (size + 8)));
+  if (name) {
+    context.font = `700 ${nameSize}px ${FONT}`;
+    context.fillStyle = "#a63d24";
+    context.fillText(name, 22, 16);
+  }
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
   const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, depthWrite: false, depthTest: false, transparent: true }));
@@ -601,6 +610,16 @@ function buildPlace(plan, venue) {
         group.add(cyl(0.07, 0.07, 0.16, ["#d9a62e", "#a63d24", "#6f7f34"][i % 3], -0.8 + i * 0.32, 1.31, cz - 0.1, 10));
       }
       group.add(cyl(0.12, 0.1, 0.22, "#c9c4ba", 0.8, 1.34, cz, 14, { metalness: 0.5, roughness: 0.35 }));
+      // nasi kucing packets wrapped in paper and banana leaf, and a kettle kept warm on the side
+      for (let i = 0; i < 6; i++) {
+        const packet = box(0.13, 0.05, 0.1, i % 2 ? "#4f6b2a" : "#b08a5a", -0.95 + i * 0.17, 1.25, cz + 0.3);
+        packet.rotation.y = (i % 3) * 0.2 - 0.2;
+        group.add(packet);
+      }
+      group.add(cyl(0.1, 0.13, 0.17, "#3b3a38", -0.95, 1.31, cz - 0.15, 14, { metalness: 0.4, roughness: 0.5 }));
+      const spout = cyl(0.018, 0.025, 0.16, "#3b3a38", -0.82, 1.36, cz - 0.15, 8);
+      spout.rotation.z = -0.9;
+      group.add(spout);
     } else if (layout === "garden") {
       group.add(box(3.4, 1.05, 0.8, "#6b4428", 0, 0.52, cz));
       group.add(box(3.5, 0.06, 0.9, "#9a6b45", 0, 1.08, cz));
@@ -628,6 +647,20 @@ function buildPlace(plan, venue) {
           group.add(cyl(0.1, 0.1, 0.14, ["#d9a62e", "#a63d24", "#6f7f34", "#c58b2a"][i % 4], -1.4 + i * 0.36, 1.12, cz, 12));
         }
         group.add(cyl(0.14, 0.12, 0.24, "#c9c4ba", 1.3, 1.17, cz, 14, { metalness: 0.5, roughness: 0.35 }));
+        // kerupuk tins beside the counter
+        for (const [i, x] of [2.25, 2.75].entries()) {
+          group.add(box(0.42, 0.46, 0.42, "#c9c4ba", x, 0.23, cz + 0.05, { metalness: 0.45, roughness: 0.4 }));
+          group.add(box(0.3, 0.26, 0.01, "#efe2c0", x, 0.26, cz + 0.265));
+          group.add(box(0.44, 0.04, 0.44, i ? "#2f6fa3" : "#c8432b", x, 0.48, cz + 0.05));
+        }
+        // strips of kopi sachets hanging from a rail above the shelves
+        group.add(cyl(0.012, 0.012, 3.0, "#3b3a38", 0, 2.42, backZ + 0.32, 6).rotateZ(Math.PI / 2));
+        const sachetColors = ["#c8432b", "#d9a62e", "#2f6fa3", "#3b2416", "#2d4a3e"];
+        for (const [s, x] of [-1.45, -1.3, -1.15, 1.15, 1.3, 1.45].entries()) {
+          for (let k = 0; k < 5; k++) {
+            group.add(box(0.12, 0.13, 0.008, sachetColors[(s + k) % sachetColors.length], x, 2.32 - k * 0.14, backZ + 0.33));
+          }
+        }
       }
       // shelves on the wall behind
       for (const y of [1.55, 2.0]) {
@@ -748,8 +781,13 @@ function makeAvatar(looks, name, isMe) {
   const label = textSprite(name, isMe ? { background: "rgba(166,61,36,0.95)" } : {});
   label.position.y = 1.95;
   root.add(label);
+  const stem = new THREE.Sprite(new THREE.SpriteMaterial({ color: "#222120", transparent: true, opacity: 0.55, depthTest: false, depthWrite: false }));
+  stem.center.set(0.5, 0);
+  stem.renderOrder = 9;
+  stem.visible = false;
+  root.add(stem);
 
-  return { root, hips, legs, arms, head, ring, label, labelText: name, bubble: null, bubbleUntil: 0 };
+  return { root, hips, legs, arms, head, ring, label, stem, labelText: name, bubble: null, bubbleUntil: 0 };
 }
 
 function poseStanding(a, t, moving) {
@@ -1078,17 +1116,17 @@ export function createWorld(container, handlers = {}) {
       a.bubble.material.map.dispose();
       a.bubble.material.dispose();
     }
-    a.bubble = bubbleSprite(text);
+    a.bubble = bubbleSprite(text, a.labelText);
     a.bubble.position.y = 2.12;
     a.bubble.userData.lift = 0;
     a.root.add(a.bubble);
     a.bubbleUntil = performance.now() + 4000 + Math.min(6000, text.length * 80);
-    // Stack older bubbles above the new one so a lively table stays readable; keep the 3 newest.
+    // Keep the two newest bubbles; the full conversation stays in the side panel.
     const others = [...avatars.values()]
       .filter((other) => other !== a && other.bubble)
       .sort((x, y) => y.bubbleUntil - x.bubbleUntil);
     others.forEach((other, index) => {
-      if (index >= 2) {
+      if (index >= 1) {
         other.bubbleUntil = 0;
       } else {
         other.bubble.userData.lift += a.bubble.scale.y + 0.05;
@@ -1430,7 +1468,8 @@ export function createWorld(container, handlers = {}) {
       return world;
     }
 
-    for (const [tableNo, entry] of tableLabels) {
+    const tableOrder = [...tableLabels].sort((p, q) => Number(q[1].mine) - Number(p[1].mine));
+    for (const [tableNo, entry] of tableOrder) {
       const base = entry.base;
       if (entry.mine && zone.visible) {
         const dx = camera.position.x - zone.position.x;
@@ -1443,7 +1482,7 @@ export function createWorld(container, handlers = {}) {
       } else {
         anchorWorld.copy(base);
       }
-      entry.sprite.position.copy(place(entry.sprite, anchorWorld, false));
+      entry.sprite.position.copy(place(entry.sprite, anchorWorld, !entry.mine));
       entry.sprite.userData.table = tableNo;
     }
 
@@ -1454,6 +1493,14 @@ export function createWorld(container, handlers = {}) {
       const world = place(a.label, anchorWorld, true);
       a.label.position.copy(a.root.worldToLocal(world.clone()));
       a.labelWorld = world;
+      const headTop = a.sitH != null ? a.sitH + 1.0 : 1.76;
+      const stemLength = world.y - a.label.scale.y / 2 - headTop - 0.03;
+      a.stem.visible = stemLength > 0.12;
+      if (a.stem.visible) {
+        anchorWorld.set(world.x, headTop + 0.03, world.z);
+        a.stem.position.copy(a.root.worldToLocal(anchorWorld.clone()));
+        a.stem.scale.set(0.012 * factor, stemLength, 1);
+      }
     }
     const talkers = people.filter((a) => a.bubble).sort((p, q) => q.bubbleUntil - p.bubbleUntil);
     for (const a of talkers) {

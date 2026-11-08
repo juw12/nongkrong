@@ -109,7 +109,11 @@ def main():
         rina.wait_for_timeout(800)
         results["bubble_shown_to_tablemate"] = dimas.evaluate("window.nongkrong.state.world.info().bubbles") >= 1
         results["no_bubble_for_other_table"] = sari.evaluate("window.nongkrong.state.world.info().bubbles") == 0
-        dimas.wait_for_timeout(2500)
+        sitting_check = "(() => { const p = window.nongkrong.state.world.info().positions; return !!(p['Rina'] && p['Dimas'] && p['Rina'].sitting && p['Dimas'].sitting); })()"
+        try:
+            dimas.wait_for_function(sitting_check, timeout=10000)
+        except Exception:
+            pass
         results["tablemates_sitting_in_3d"] = dimas.evaluate(
             "(() => { const p = window.nongkrong.state.world.info().positions; return p['Rina'].sitting && p['Dimas'].sitting; })()")
         results["dimas_got_message"] = dimas.locator(".msg p", has_text="Hujan di Nagoya").count() == 1
