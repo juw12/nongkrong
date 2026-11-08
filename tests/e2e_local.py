@@ -23,6 +23,9 @@ for key in ("HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy"):
 os.environ["NO_PROXY"] = "127.0.0.1,localhost"
 
 
+GPU_ARGS = ["--use-angle=d3d11", "--ignore-gpu-blocklist", "--enable-unsafe-swiftshader", "--proxy-bypass-list=127.0.0.1;localhost"]
+
+
 class Quiet(http.server.SimpleHTTPRequestHandler):
     def log_message(self, *args):
         pass
@@ -57,9 +60,9 @@ def main():
     errors = []
     with sync_playwright() as p:
         try:
-            browser = p.chromium.launch(channel="chrome", args=["--proxy-bypass-list=127.0.0.1;localhost"])
+            browser = p.chromium.launch(channel="chrome", args=GPU_ARGS)
         except Exception:
-            browser = p.chromium.launch()
+            browser = p.chromium.launch(args=GPU_ARGS)
         context = browser.new_context(viewport={"width": 1440, "height": 900})
         offline_fonts(context)
         pages = {}
@@ -71,9 +74,22 @@ def main():
             page.goto(url, wait_until="domcontentloaded")
             pages[name] = page
         rina, dimas, sari = pages["Rina"], pages["Dimas"], pages["Sari"]
+        for page in (rina, dimas, sari):
+            page.wait_for_function("document.querySelector('#stage')?.dataset.ready === '1'", timeout=90000)
         rina.wait_for_timeout(1500)
 
         results["presence_count"] = rina.evaluate("window.nongkrong.state.people.size")
+        results["world_avatars"] = rina.evaluate("window.nongkrong.state.world.info().avatars")
+
+        # Sari walks forward with the keyboard; Rina sees her move in the 3D place.
+        before = rina.evaluate("window.nongkrong.state.world.info().positions['Sari']")
+        sari.locator(".world-canvas").focus()
+        sari.keyboard.down("w")
+        sari.wait_for_timeout(1200)
+        sari.keyboard.up("w")
+        rina.wait_for_timeout(1500)
+        after = rina.evaluate("window.nongkrong.state.world.info().positions['Sari']")
+        results["walk_synced"] = bool(before and after and before["z"] - after["z"] > 0.5)
 
         # Rina and Dimas sit at table 2, Sari at table 3.
         rina.locator(".t").nth(1).click()
@@ -91,6 +107,11 @@ def main():
         rina.fill("#sayInput", "Hujan di Nagoya, nongkrong online saja")
         rina.press("#sayInput", "Enter")
         rina.wait_for_timeout(800)
+        results["bubble_shown_to_tablemate"] = dimas.evaluate("window.nongkrong.state.world.info().bubbles") >= 1
+        results["no_bubble_for_other_table"] = sari.evaluate("window.nongkrong.state.world.info().bubbles") == 0
+        dimas.wait_for_timeout(2500)
+        results["tablemates_sitting_in_3d"] = dimas.evaluate(
+            "(() => { const p = window.nongkrong.state.world.info().positions; return p['Rina'].sitting && p['Dimas'].sitting; })()")
         results["dimas_got_message"] = dimas.locator(".msg p", has_text="Hujan di Nagoya").count() == 1
         results["sari_got_message"] = sari.locator(".msg p", has_text="Hujan di Nagoya").count() > 0
 
@@ -131,10 +152,17 @@ def main():
         mobile.add_init_script(seed("Ahmad"))
         mobile.on("pageerror", lambda exc: errors.append(f"phone: {exc}"))
         mobile.goto(url, wait_until="domcontentloaded")
+        mobile.wait_for_function("document.querySelector('#stage')?.dataset.ready === '1'", timeout=90000)
         mobile.wait_for_timeout(900)
         mobile.screenshot(path=str(OUT / "phone-floor.png"))
         results["overflow_390_floor"] = mobile.evaluate("document.documentElement.scrollWidth > innerWidth")
-        mobile.locator(".t").first.click()
+        # Tap table 1 inside the 3D view itself: the avatar walks over and sits.
+        spot = mobile.evaluate("window.nongkrong.state.world.tableOnScreen(1)")
+        mobile.mouse.click(spot["x"], spot["y"])
+        mobile.wait_for_timeout(600)
+        results["tap_3d_table_sits"] = mobile.evaluate("window.nongkrong.state.seat?.table") == 1
+        if not results["tap_3d_table_sits"]:
+            mobile.locator(".t").first.click()
         mobile.wait_for_timeout(500)
         results["phone_switches_to_table"] = mobile.evaluate("document.querySelector('#main').dataset.view") == "table"
         mobile.screenshot(path=str(OUT / "phone-table.png"))
@@ -150,6 +178,12 @@ def main():
 
     expected = {
         "presence_count": 2,
+        "world_avatars": 3,
+        "walk_synced": True,
+        "bubble_shown_to_tablemate": True,
+        "no_bubble_for_other_table": True,
+        "tablemates_sitting_in_3d": True,
+        "tap_3d_table_sits": True,
         "rina_table_members": 2,
         "sari_table_members": 1,
         "distinct_seats": True,

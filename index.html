@@ -13,6 +13,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="app.css">
+<link rel="modulepreload" href="world.js">
 <script>
   try {
     const savedTheme = JSON.parse(localStorage.getItem("nk:theme"));
@@ -56,18 +57,22 @@
       <div class="clock"><b id="clock">--:--</b><span id="clockLabel">local time</span></div>
     </div>
     <div class="counter" aria-label="About this place"><span class="counter-label">Counter</span><span id="counterText"></span></div>
-    <div class="tables" id="tables"></div>
+    <div class="stage" id="stage" hidden>
+      <p class="stage-tip" aria-hidden="true">Tap the floor to walk, a table to sit. Drag to look around.</p>
+    </div>
+    <h2 class="go-title" id="goTitle">Tables</h2>
+    <div class="tables" id="tables" aria-labelledby="goTitle"></div>
     <p class="hint" id="hint" hidden></p>
   </section>
 
   <aside class="panel" id="panel" aria-label="Your table">
     <div id="panelEmpty" class="empty">
       <h2>Pick a table</h2>
-      <p>Tap a table with a free seat. Only the people sitting at the same table can read what you write or hear your voice.</p>
+      <p>Walk around, see who is here, and tap a table with a free seat. Only the people sitting at the same table can read what you write or hear your voice.</p>
       <ol class="how">
-        <li><b>Sit down.</b> Your stool turns terracotta.</li>
-        <li><b>Say hi</b> in text, or turn on voice.</li>
-        <li><b>Leave</b> whenever you like. Nothing is saved.</li>
+        <li><b>Walk in.</b> Tap the floor or use WASD and the arrow keys.</li>
+        <li><b>Sit down</b> at any table with a free seat. You walk over and take a stool.</li>
+        <li><b>Say hi</b> in text, or turn on voice. Leave whenever you like; nothing is saved.</li>
       </ol>
       <p class="fine">No account and no server. Your name stays on this device; messages go browser to browser.</p>
     </div>

@@ -41,6 +41,10 @@ const state = {
   lastSent: 0,
   recent: new Map(),       // peerId -> timestamps, for flood control
   pendingTable: null,      // table number from a shared link
+  pos: null,               // my { x, z, ry } in the 3D place while standing
+  world: null,             // the 3D view (null when WebGL is not available)
+  worldKey: null,          // which place the 3D view is showing
+  sendMove: null,
 };
 
 // ---------- small helpers ----------
@@ -99,7 +103,7 @@ const region = () => findRegion(country(), state.region);
 const venue = () => findVenue(country(), state.venue);
 
 function me() {
-  return {
+  const presence = {
     name: state.name,
     venue: state.venue,
     table: state.seat ? state.seat.table : null,
@@ -107,6 +111,24 @@ function me() {
     since: state.seat ? state.seat.since : 0,
     voice: state.voice.on && !state.voice.muted,
   };
+  if (!state.seat && state.pos) {
+    Object.assign(presence, state.pos);
+  }
+  return presence;
+}
+
+// A spot in the 3D place: metres from the middle of the floor, and which way the person faces.
+function validPos(p) {
+  if (!p || typeof p !== "object") {
+    return null;
+  }
+  const x = Number(p.x);
+  const z = Number(p.z);
+  const ry = Number(p.ry);
+  if (![x, z, ry].every(Number.isFinite) || Math.abs(x) > 30 || Math.abs(z) > 30 || Math.abs(ry) > 7) {
+    return null;
+  }
+  return { x, z, ry };
 }
 
 function validPresence(p) {
@@ -119,7 +141,7 @@ function validPresence(p) {
   }
   const table = Number.isInteger(p.table) && p.table >= 1 && p.table <= 12 ? p.table : null;
   const seat = table && Number.isInteger(p.seat) && p.seat >= 0 && p.seat < 12 ? p.seat : null;
-  return {
+  const presence = {
     name,
     venue: p.venue,
     table: seat == null ? null : table,
@@ -127,6 +149,11 @@ function validPresence(p) {
     since: Number(p.since) || 0,
     voice: p.voice === true,
   };
+  const pos = seat == null ? validPos(p) : null;
+  if (pos) {
+    Object.assign(presence, pos);
+  }
+  return presence;
 }
 
 // Everyone in the region, me included, as [id, presence].
@@ -179,6 +206,21 @@ function enterRegion(countryCode, regionId) {
   room.onPeerLeave((peerId) => {
     state.people.delete(peerId);
     render();
+  });
+  // Walking around the place: small position updates, a few per second at most.
+  const [sendMove, onMove] = room.makeAction("move");
+  state.sendMove = sendMove;
+  onMove((data, peerId) => {
+    if (state.regionRoom !== room) {
+      return;
+    }
+    const person = state.people.get(peerId);
+    const pos = validPos(data);
+    if (!person || !pos || person.seat != null || flooding("move:" + peerId, 40)) {
+      return;
+    }
+    Object.assign(person, pos);
+    syncWorld();
   });
   announce();
   syncSelects();
@@ -269,6 +311,7 @@ function joinTable() {
     if (text) {
       const who = state.people.get(peerId)?.name || "Someone";
       addMessage(who, text, false);
+      state.world?.say(peerId, text);
     }
   });
 
@@ -305,12 +348,12 @@ function leaveTable(quiet = false) {
   }
 }
 
-function flooding(peerId) {
+function flooding(peerId, limit = 6) {
   const now = Date.now();
   const times = (state.recent.get(peerId) || []).filter((t) => now - t < 3000);
   times.push(now);
   state.recent.set(peerId, times);
-  return times.length > 6;
+  return times.length > limit;
 }
 
 const tableName = (n) => `${country().table} ${n}`;
@@ -349,6 +392,7 @@ function sendMessage(event) {
   state.lastSent = now;
   state.sendChat({ text });
   addMessage(state.name + " (you)", text, true);
+  state.world?.say(myId, text);
   input.value = "";
 }
 
@@ -487,8 +531,82 @@ setInterval(() => {
     document.querySelectorAll(".stool[data-peer]").forEach((s) => {
       s.classList.toggle("speaking", state.speaking.has(s.dataset.peer));
     });
+    syncWorld();
   }
 }, 200);
+
+// ---------- 3D place ----------
+
+const params = new URLSearchParams(location.search);
+
+function hourIn(tz) {
+  const forced = Number(params.get("hour"));
+  if (params.has("hour") && Number.isInteger(forced) && forced >= 0 && forced < 24) {
+    return forced;
+  }
+  try {
+    const text = new Intl.DateTimeFormat("en-GB", { hour: "2-digit", hourCycle: "h23", timeZone: tz === "UTC" ? undefined : tz }).format(new Date());
+    return Number.parseInt(text, 10) || 0;
+  } catch (error) {
+    return new Date().getHours();
+  }
+}
+
+function tryTable(tableNo) {
+  const t = tablesFor(venue()).find((x) => x.n === tableNo);
+  if (!t) {
+    return;
+  }
+  const mine = state.seat && state.seat.table === tableNo;
+  const full = occupants(state.venue, tableNo).length >= t.seats && !mine;
+  if (full) {
+    toast("That table is full. Try another one.");
+  } else {
+    sit(tableNo);
+  }
+}
+
+// Push everyone in this place (and me) into the 3D view.
+function syncWorld() {
+  const world = state.world;
+  if (!world || !state.country) {
+    return;
+  }
+  const key = `${state.country}/${state.venue}`;
+  if (state.worldKey !== key) {
+    state.worldKey = key;
+    world.setVenue({ layout: venue().layout, tables: tablesFor(venue()), tableWord: country().table, venue: venue() });
+    world.setHour(hourIn(region().tz));
+    state.pos = world.myPosition();
+    announce();
+  }
+  const people = everyone()
+    .filter(([, p]) => p.venue === state.venue)
+    .map(([id, p]) => ({ id, name: p.name, table: p.table, seat: p.seat, x: p.x, z: p.z, ry: p.ry, voice: p.voice }));
+  world.sync(people, { myId, speaking: state.speaking });
+}
+
+function setupWorld(module) {
+  const stage = $("#stage");
+  const world = module.createWorld(stage, {
+    onTable: (tableNo) => tryTable(tableNo),
+    onFloorWhileSeated: () => toast("You are sitting down. Tap Leave table to walk around."),
+    onMove: (pos) => {
+      state.pos = pos;
+      if (state.sendMove && !state.seat) {
+        state.sendMove(pos);
+      }
+    },
+  });
+  if (!world) {
+    return;
+  }
+  state.world = world;
+  stage.hidden = false;
+  $("#main").classList.add("has-world");
+  $("#tables").classList.add("chips");
+  render();
+}
 
 // ---------- rendering ----------
 
@@ -595,10 +713,11 @@ function renderTables() {
       type: "button",
       "aria-label": label,
       "aria-disabled": full ? "true" : null,
-      onclick: () => (full ? toast("That table is full. Try another one.") : sit(t.n)),
+      onclick: () => tryTable(t.n),
     }, [
       el("div", { class: "plate", style: `width:${plateSize.width}px;height:${plateSize.height}px` }, [top, ...stools]),
-      el("div", { class: "names", text: names || "\u00a0" }),
+      el("div", { class: "tn", text: tableName(t.n) }),
+      el("div", { class: "names", text: names || (state.world ? "Nobody yet" : "\u00a0") }),
       el("div", { class: mine || full ? "cap" : hasCompany ? "cap free join" : "cap free", text: cap }),
     ]);
   });
@@ -714,6 +833,7 @@ function render() {
   renderIntro();
   renderTables();
   renderPanel();
+  syncWorld();
 }
 
 function showView(view) {
@@ -871,6 +991,7 @@ function init() {
   setInterval(() => {
     if (state.country) {
       $("#clock").textContent = timeIn(region().tz);
+      state.world?.setHour(hourIn(region().tz));
     }
   }, 15000);
   setInterval(() => announce(), 20000);
@@ -897,3 +1018,9 @@ function init() {
 
 window.nongkrong = { state, myId };
 init();
+// The 3D place loads after the page works, so a slow or missing WebGL never blocks chatting.
+if (!params.has("flat")) {
+  import("./world.js")
+    .then((module) => setupWorld(module))
+    .catch((error) => console.warn("3D view unavailable", error));
+}

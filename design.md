@@ -43,8 +43,17 @@ Plain, warm, short. Indonesian place words are fine ("Meja", "warung kopi"). Ban
 unlock, next-level, revolutionary, emoji anywhere.
 
 ## Signature
-Round marble tables with stools drawn around them; your stool is terracotta, a person in voice has a green ring
-that pulses while they talk. The checker strip at the top of the page.
+A walkable low-poly 3D place (three.js, `world.js`) in the same palette: marble table tops with dark rims, green and
+cream checker floors, terracotta signboards, warm lamps at night. Your avatar has a terracotta ring and name tag,
+a person in voice has a green ring that pulses while they talk. Flat shading, no textures from the internet, no
+bloom or glow effects. The checker strip at the top of the page. The 2D marble table plan stays as the no-WebGL fallback.
+
+## 3D rules
+- Every place type is built from the same small kit (box, cylinder, sphere) and its own local props, so a warung,
+  kopitiam, angkringan, street stall, izakaya counter and beer garden read differently at a glance.
+- Nothing hangs between the camera and the tables: lamps sit on walls, string lights run along the edges.
+- Labels: table tags just above the table top, names above heads, chat bubbles above names. Your own table hides its tag.
+- Light follows the region's local time: day, dusk (17-19), night (19-6) with lamps on.
 
 ## Banned defaults
 Purple/indigo gradients, Inter-only, emoji as icons, glow blobs, glassmorphism, identical icon+heading card
