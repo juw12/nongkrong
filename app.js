@@ -734,7 +734,7 @@ function renderPanel() {
   }
   const sitters = occupants(state.venue, state.seat.table);
   $("#tableTitle").textContent = tableName(state.seat.table);
-  $("#sayInput").placeholder = `Message ${tableName(state.seat.table)} (only this table sees it)`;
+  $("#sayInput").placeholder = `Only ${tableName(state.seat.table)} sees this`;
   const count = sitters.length;
   $("#tableSub").textContent = count === 1
     ? `${venue().name}. Nobody else yet. Share the link to bring a friend.`

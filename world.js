@@ -988,13 +988,13 @@ export function createWorld(container, handlers = {}) {
         : sitters ? { background: "rgba(45,74,62,0.92)" }
         : { background: "rgba(255,255,255,0.92)", color: "#222120" };
       const sprite = textSprite(text, { ...style, size: 36 });
-      sprite.position.set(t.x, t.kind === "bar" ? 1.3 : t.kind === "low" ? 0.6 : t.kind === "plastic" ? 0.8 : 1.0, t.kind === "bar" ? t.z + 0.1 : t.z);
+      const base = new THREE.Vector3(t.x, t.kind === "bar" ? 1.3 : t.kind === "low" ? 0.6 : t.kind === "plastic" ? 0.8 : 1.0, t.kind === "bar" ? t.z + 0.1 : t.z);
+      sprite.position.copy(base);
       sprite.material.depthTest = false;
-      sprite.renderOrder = 5;
       sprite.renderOrder = myTable === t.n ? 6 : 5;
       sprite.userData.table = t.n;
       scene.add(sprite);
-      tableLabels.set(t.n, { sprite, text });
+      tableLabels.set(t.n, { sprite, text, base, mine: myTable === t.n });
     }
   }
 
@@ -1368,44 +1368,99 @@ export function createWorld(container, handlers = {}) {
 
   // ---------- frame loop ----------
 
-  // Keep name tags from sitting on top of each other: push the farther one up in screen space.
-  const projected = new THREE.Vector3();
-  function separateLabels() {
-    const height = canvas.clientHeight || 1;
-    const width = canvas.clientWidth || 1;
-    const items = [];
-    for (const a of avatars.values()) {
-      const baseY = a.sitH != null ? a.sitH + 0.06 + 1.12 : 1.95;
-      projected.set(a.x, baseY, a.z);
-      const distance = camera.position.distanceTo(projected);
-      const worldPerPixel = (2 * distance * Math.tan((camera.fov * Math.PI) / 360)) / height;
-      projected.project(camera);
-      items.push({
-        a, baseY, worldPerPixel,
-        x: ((projected.x + 1) / 2) * width,
-        y: ((1 - projected.y) / 2) * height,
-        w: a.label.scale.x / worldPerPixel,
-        h: a.label.scale.y / worldPerPixel,
-        depth: distance,
-      });
+  // Lay out every floating tag once per frame so none hide each other or fall off the canvas.
+  // Table tags go first (your own table's tag sits on the near edge of its floor ring), then
+  // name tags nearest first, then chat bubbles newest first; each one is lifted until it is clear.
+  const anchorScreen = new THREE.Vector3();
+  const anchorUp = new THREE.Vector3();
+  const camRight = new THREE.Vector3();
+  const anchorWorld = new THREE.Vector3();
+  function screenOf(v, width, height) {
+    anchorScreen.copy(v).project(camera);
+    return { x: ((anchorScreen.x + 1) / 2) * width, y: ((1 - anchorScreen.y) / 2) * height, behind: anchorScreen.z > 1 };
+  }
+  function sizeSprite(sprite, factor) {
+    if (!sprite.userData.base) {
+      sprite.userData.base = sprite.scale.clone();
     }
-    items.sort((p, q) => p.depth - q.depth);
+    sprite.scale.copy(sprite.userData.base).multiplyScalar(factor);
+  }
+  function layoutLabels() {
+    const width = canvas.clientWidth || 1;
+    const height = canvas.clientHeight || 1;
+    const factor = width < 560 ? 1.3 : 1;
+    const pad = 6;
+    camRight.setFromMatrixColumn(camera.matrixWorld, 0);
+    camRight.y = 0;
+    camRight.normalize();
     const placed = [];
-    for (const item of items) {
-      let lift = 0;
-      for (let guard = 0; guard < 6; guard++) {
-        const top = item.y - lift;
-        const hit = placed.find((o) => Math.abs(o.x - item.x) < (o.w + item.w) / 2 + 2 && Math.abs(o.top - top) < (o.h + item.h) / 2 + 1);
-        if (!hit) {
-          break;
+    const hitTest = (r) => placed.find((o) => Math.abs(o.x - r.x) < (o.w + r.w) / 2 + 3 && Math.abs(o.y - r.y) < (o.h + r.h) / 2 + 2);
+
+    // Returns the world position the sprite should take, given where it would sit untouched.
+    function place(sprite, anchor, movable) {
+      sizeSprite(sprite, factor);
+      const s = screenOf(anchor, width, height);
+      if (s.behind) {
+        return anchor.clone();
+      }
+      anchorUp.copy(anchor);
+      anchorUp.y += 1;
+      const up = screenOf(anchorUp, width, height);
+      const pixelsPerY = Math.max(1, s.y - up.y);
+      const worldPerPixel = (2 * camera.position.distanceTo(anchor) * Math.tan((camera.fov * Math.PI) / 360)) / height;
+      const w = sprite.scale.x / worldPerPixel;
+      const h = sprite.scale.y / worldPerPixel;
+      const offsetY = (0.5 - sprite.center.y) * h;
+      const rect = { x: s.x, y: s.y - offsetY, w, h };
+      if (w < width - pad * 2) {
+        rect.x = Math.min(width - pad - w / 2, Math.max(pad + w / 2, rect.x));
+      }
+      if (movable) {
+        for (let guard = 0; guard < 10; guard++) {
+          const hit = hitTest(rect);
+          if (!hit) {
+            break;
+          }
+          rect.y = hit.y - (hit.h + rect.h) / 2 - 3;
         }
-        lift = item.y - (hit.top - (hit.h + item.h) / 2 - 2);
       }
-      placed.push({ x: item.x, top: item.y - lift, w: item.w, h: item.h });
-      item.a.label.position.y = item.baseY + lift * item.worldPerPixel;
-      if (item.a.bubble) {
-        item.a.bubble.position.y = item.a.label.position.y + 0.17 + (item.a.bubble.userData.lift || 0);
+      placed.push(rect);
+      const world = anchor.clone().addScaledVector(camRight, (rect.x - s.x) * worldPerPixel);
+      world.y += (s.y - (rect.y + offsetY)) / pixelsPerY;
+      return world;
+    }
+
+    for (const [tableNo, entry] of tableLabels) {
+      const base = entry.base;
+      if (entry.mine && zone.visible) {
+        const dx = camera.position.x - zone.position.x;
+        const dz = camera.position.z - zone.position.z;
+        const length = Math.hypot(dx, dz) || 1;
+        const ux = dx / length;
+        const uz = dz / length;
+        const r = 1 / Math.sqrt((ux / zone.scale.x) ** 2 + (uz / zone.scale.z) ** 2);
+        anchorWorld.set(zone.position.x + ux * r, 0.12, zone.position.z + uz * r);
+      } else {
+        anchorWorld.copy(base);
       }
+      entry.sprite.position.copy(place(entry.sprite, anchorWorld, false));
+      entry.sprite.userData.table = tableNo;
+    }
+
+    const people = [...avatars.values()].sort((p, q) => camera.position.distanceToSquared(p.root.position) - camera.position.distanceToSquared(q.root.position));
+    for (const a of people) {
+      a.root.updateMatrixWorld();
+      anchorWorld.set(a.x, a.sitH != null ? a.sitH + 0.06 + 1.12 : 1.95, a.z);
+      const world = place(a.label, anchorWorld, true);
+      a.label.position.copy(a.root.worldToLocal(world.clone()));
+      a.labelWorld = world;
+    }
+    const talkers = people.filter((a) => a.bubble).sort((p, q) => q.bubbleUntil - p.bubbleUntil);
+    for (const a of talkers) {
+      anchorWorld.copy(a.labelWorld);
+      anchorWorld.y += a.label.scale.y / 2 + 0.04;
+      const world = place(a.bubble, anchorWorld, true);
+      a.bubble.position.copy(a.root.worldToLocal(world.clone()));
     }
   }
 
@@ -1446,7 +1501,6 @@ export function createWorld(container, handlers = {}) {
         }
       }
     }
-    separateLabels();
     marker.material.opacity = Math.max(0, marker.material.opacity - dt * 0.9);
 
     // Look a little ahead of me into the room, or at my table once I sit down.
@@ -1470,6 +1524,8 @@ export function createWorld(container, handlers = {}) {
       cam.target.z + Math.cos(cam.yaw) * horizontal,
     );
     camera.lookAt(cam.target);
+    camera.updateMatrixWorld();
+    layoutLabels();
     renderer.render(scene, camera);
     if (!readyFlag) {
       readyFlag = true;
