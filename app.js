@@ -572,10 +572,18 @@ function syncWorld() {
   if (!world || !state.country) {
     return;
   }
-  const key = `${state.country}/${state.venue}`;
+  // Rebuild whenever the country, the city or the place changes: each one looks different.
+  const key = `${state.country}/${state.region}/${state.venue}`;
   if (state.worldKey !== key) {
     state.worldKey = key;
-    world.setVenue({ layout: venue().layout, tables: tablesFor(venue()), tableWord: country().table, venue: venue() });
+    world.setVenue({
+      layout: venue().layout,
+      tables: tablesFor(venue()),
+      tableWord: country().table,
+      venue: venue(),
+      country: state.country,
+      region: region().name,
+    });
     world.setHour(hourIn(region().tz));
     state.pos = world.myPosition();
     announce();
@@ -703,8 +711,8 @@ function renderTables() {
     const hasCompany = sitters.length > 0;
     const cap = mine ? "You are here"
       : full ? "Full"
-      : hasCompany ? `Join them, ${freeCount} ${freeCount === 1 ? "seat" : "seats"} free`
-      : `Sit here, ${t.seats} seats`;
+      : hasCompany ? `Join, ${freeCount} free`
+      : `Sit here, ${t.seats} free`;
     const names = sitters.map(([id, p]) => (id === myId ? "You" : p.name)).join(", ");
     const label = `${tableName(t.n)}. ${cap}.${names ? " " + names + "." : ""}${mine ? " Open your table." : full ? "" : " Sit here."}`;
 
@@ -734,15 +742,18 @@ function renderPanel() {
   }
   const sitters = occupants(state.venue, state.seat.table);
   $("#tableTitle").textContent = tableName(state.seat.table);
-  $("#sayInput").placeholder = `Only ${tableName(state.seat.table)} sees this`;
+  const table = tableName(state.seat.table);
   const count = sitters.length;
+  $("#sayInput").placeholder = `Message ${table}`;
   $("#tableSub").textContent = count === 1
-    ? `${venue().name}. Nobody else yet. Share the link to bring a friend.`
-    : `${venue().name}. Only the ${count} people at this table can read and hear it.`;
+    ? `${venue().name}, ${region().name}. Nobody else yet; share the link to bring a friend.`
+    : `${venue().name}, ${region().name}. ${count} people at this table.`;
+  // one privacy phrase everywhere: here, on the floor ring in 3D, and in the welcome text
+  $("#tablePrivate").textContent = `Private to ${table}. Only people sitting here can read and hear you.`;
 
   const voiceBtn = $("#voiceBtn");
-  voiceBtn.textContent = LOCAL ? "Voice off in test mode" : state.voice.on ? "Turn off voice" : "Turn on voice";
-  voiceBtn.className = LOCAL ? "btn" : state.voice.on ? "btn on" : "btn primary";
+  voiceBtn.textContent = LOCAL ? "Voice: online only" : state.voice.on ? "Turn off voice" : "Turn on voice";
+  voiceBtn.className = LOCAL ? "btn note" : state.voice.on ? "btn on" : "btn primary";
   voiceBtn.disabled = LOCAL;
   voiceBtn.setAttribute("aria-pressed", String(state.voice.on));
   const muteBtn = $("#muteBtn");
@@ -759,13 +770,15 @@ function renderPanel() {
     const isMe = id === myId;
     const tag = p.voice ? "in voice" : "";
     const blocked = state.blocked.has(id);
-    return el("li", { class: p.voice ? "in-voice" : null }, [
+    return el("li", { class: [p.voice ? "in-voice" : "", isMe ? "me" : ""].join(" ").trim() || null }, [
+      el("span", { class: "av", "aria-hidden": "true", text: (p.name || "?").trim().charAt(0).toUpperCase() }),
       el("span", { class: "who", text: isMe ? `${p.name} (you)` : p.name }),
-      (blocked || tag) ? el("span", { class: "tag", text: blocked ? "hidden" : tag }) : null,
+      (blocked || tag) ? el("span", { class: "tag", text: blocked ? "blocked" : tag }) : null,
       isMe ? null : el("button", {
         type: "button",
-        text: blocked ? "Show" : "Hide",
-        "aria-label": `${blocked ? "Show" : "Hide"} ${p.name}`,
+        text: blocked ? "Unblock" : "Block",
+        title: blocked ? `Hear and read ${p.name} again` : `Stop hearing and reading ${p.name}`,
+        "aria-label": `${blocked ? "Unblock" : "Block"} ${p.name}`,
         onclick: () => toggleBlock(id),
       }),
     ]);
@@ -1017,7 +1030,22 @@ function init() {
   }
 }
 
-window.nongkrong = { state, myId };
+// Test hook: jump to a country, city (id or name) and place, the same way the menus do.
+function goTo(countryCode, regionKey, venueId) {
+  const c = findCountry(countryCode);
+  const wanted = String(regionKey).toLowerCase();
+  const reg = c.regions.find((x) => x.id === wanted || x.name.toLowerCase() === wanted || x.name.toLowerCase().startsWith(wanted)) || c.regions[0];
+  if (state.country !== countryCode || state.region !== reg.id) {
+    enterRegion(countryCode, reg.id);
+    syncSelects();
+  }
+  if (venueId && findVenue(c, venueId)) {
+    chooseVenue(venueId);
+  }
+  render();
+}
+
+window.nongkrong = { state, myId, goTo };
 init();
 // The 3D place loads after the page works, so a slow or missing WebGL never blocks chatting.
 if (!params.has("flat")) {

@@ -58,3 +58,19 @@ bloom or glow effects. The checker strip at the top of the page. The 2D marble t
 ## Banned defaults
 Purple/indigo gradients, Inter-only, emoji as icons, glow blobs, glassmorphism, identical icon+heading card
 grids, gradient text, fake testimonials or logos, "Get started" as the only action, decorative status dots.
+
+## 3D places (themes.js)
+- Every venue maps to an archetype in `themes.js` (floor, walls, counter, sign, furniture, lights, decor); no two
+  venue types share a room.
+- The city makes a branch: `regionalise()` hashes the city name and picks the fit-out (floor, lights, wall art,
+  chairs, table tops, sign colour, wall tone, counter finish, wainscot panel, square or round small tables,
+  staggered rows, and a deeper two-column floor plan for some branches). The archetype's
+  signature (checker floor, tatami, chochin, noren) is never replaced. Hue shifts skip the purple band.
+- A street board outside shows the city name and a seeded skyline; two unnamed passers-by walk past outside.
+- Table tags: my table first, then occupied, then nearest empty; a tag that would overlap or leave the view is
+  hidden. Sizes come from view depth, so the collision test matches what is drawn. `world.info().tags` exposes the
+  placed rectangles for tests.
+- Privacy wording is one phrase everywhere: "Private to Meja N. Only people sitting here can read and hear you."
+- Member actions: "Block" / "Unblock" (stops their messages and voice reaching you).
+- Table tags always state availability the same way: "Meja 4 · 4 free", "Meja 3 · 3 free", "full".
+- Name tags of people walking right past the camera are capped to normal size; your own name and chat bubbles are not.

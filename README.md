@@ -24,6 +24,12 @@ already there, and sit at a table. Text chat and voice stay inside the table.
   with string lights.
 - **23 countries plus "Anywhere", 107 cities and regions, 69 places.** Each region picks the place types people
   there actually hang out in.
+- **Every place looks like its own place.** All 69 venues have their own 3D look (floor, walls, counter, sign,
+  furniture, lights and decor), so a Malaysian kopitiam, a Japanese kissaten and a London pub never share a room.
+- **Same kind of place, different city, different branch.** A kafe in Batam and a kafe in Jakarta are fitted out
+  differently: floor, lighting, wall art, counter finish, wall panelling, seating, table shape, floor plan and sign
+  colour come from the city, and a street board outside shows the city name. Change city or venue and the 3D scene
+  rebuilds at once.
 - **Day and night follow the city's clock.** The sky, sun and lamps follow the local time of the region you pick, so
   a Batam angkringan at 9 pm is dark with the lantern lit.
 - **Speech bubbles at your table.** What your table-mates write pops up above their heads, and it only appears for
@@ -36,7 +42,7 @@ already there, and sit at a table. Text chat and voice stay inside the table.
   the same stool, the one who sat first keeps it.
 - **Local time.** The clock shows the time in the region on screen, so you know if people there are on lunch or on a night shift.
 - **Share a table.** "Copy link to this table" makes a link that drops a friend at the same table.
-- **Hide a person.** Hide anyone at your table and their messages and voice stop reaching you.
+- **Block a person.** Block anyone at your table and their messages and voice stop reaching you.
 - **Light and dark theme.** Works on phones, installs as an app (PWA), and the app shell works offline.
 
 ## How it works (and what that means for privacy)

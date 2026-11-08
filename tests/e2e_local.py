@@ -79,16 +79,27 @@ def main():
         rina.wait_for_timeout(1500)
 
         results["presence_count"] = rina.evaluate("window.nongkrong.state.people.size")
+        # presence arrives over the local channel; give a loaded machine up to 10 s
+        try:
+            rina.wait_for_function("window.nongkrong.state.world.info().avatars >= 3", timeout=10000)
+        except Exception:
+            pass
         results["world_avatars"] = rina.evaluate("window.nongkrong.state.world.info().avatars")
 
         # Sari walks forward with the keyboard; Rina sees her move in the 3D place.
         before = rina.evaluate("window.nongkrong.state.world.info().positions['Sari']")
+        # headless Chrome throttles animation frames in background tabs, so bring each page forward
+        sari.bring_to_front()
         sari.locator(".world-canvas").focus()
         sari.keyboard.down("w")
         sari.wait_for_timeout(1200)
         sari.keyboard.up("w")
-        rina.wait_for_timeout(1500)
-        after = rina.evaluate("window.nongkrong.state.world.info().positions['Sari']")
+        rina.bring_to_front()
+        for _ in range(16):
+            rina.wait_for_timeout(500)
+            after = rina.evaluate("window.nongkrong.state.world.info().positions['Sari']")
+            if before and after and before["z"] - after["z"] > 0.5:
+                break
         results["walk_synced"] = bool(before and after and before["z"] - after["z"] > 0.5)
 
         # Rina and Dimas sit at table 2, Sari at table 3.
@@ -141,7 +152,7 @@ def main():
         results["full_table_refused"] = sari.evaluate("window.nongkrong.state.seat === null")
 
         # Hide (block) works locally: Dimas hides Rina and no longer sees her messages.
-        dimas.locator("#members button", has_text="Hide").first.click()
+        dimas.locator("#members button", has_text="Block").first.click()
         rina.fill("#sayInput", "can you see this")
         rina.press("#sayInput", "Enter")
         dimas.wait_for_timeout(700)

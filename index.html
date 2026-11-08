@@ -68,7 +68,8 @@
   <aside class="panel" id="panel" aria-label="Your table">
     <div id="panelEmpty" class="empty">
       <h2>Pick a table</h2>
-      <p>Walk around, see who is here, and tap a table with a free seat. Only the people sitting at the same table can read what you write or hear your voice.</p>
+      <p>Walk around, see who is here, and tap a table with a free seat.</p>
+      <p class="private">Every table is private. Only people sitting there can read and hear you.</p>
       <ol class="how">
         <li><b>Walk in.</b> Tap the floor or use WASD and the arrow keys.</li>
         <li><b>Sit down</b> at any table with a free seat. You walk over and take a stool.</li>
@@ -80,7 +81,8 @@
     <div id="panelSeated" class="seated" hidden>
       <div class="ph">
         <h2 id="tableTitle">Meja 1</h2>
-        <p id="tableSub">Only the people at this table can read and hear it.</p>
+        <p id="tableSub"></p>
+        <p id="tablePrivate" class="private">Private to this table. Only people sitting here can read and hear you.</p>
         <div class="actions">
           <button id="voiceBtn" class="btn primary" type="button">Turn on voice</button>
           <button id="muteBtn" class="btn" type="button" hidden>Mute</button>
@@ -92,7 +94,7 @@
       <div class="log" id="log" aria-live="polite" aria-label="Table chat"></div>
       <form class="say" id="sayForm" autocomplete="off">
         <label class="sr" for="sayInput">Message</label>
-        <input id="sayInput" maxlength="400" placeholder="Message this table">
+        <input id="sayInput" maxlength="400" placeholder="Message your table">
         <button class="btn" type="submit">Send</button>
       </form>
       <button id="copyBtn" class="link" type="button">Copy link to this table</button>
@@ -103,7 +105,7 @@
 <dialog id="welcome" aria-labelledby="welcomeTitle">
   <form method="dialog" id="welcomeForm">
     <h2 id="welcomeTitle">Mari nongkrong</h2>
-    <p>Pick your city, then sit at any table in a warung, kopitiam, pub or cafe near you. Only your table can hear you.</p>
+    <p>Pick your city, then sit at any table in a warung, kopitiam, pub or cafe near you. Only people sitting at your table can read and hear you.</p>
     <label class="field">What should people call you?
       <input id="nameInput" required maxlength="24" placeholder="Your name">
     </label>
