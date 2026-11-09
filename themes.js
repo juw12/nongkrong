@@ -459,9 +459,9 @@ function regionalise(theme, regionName) {
       ? { kind: "tile", a: nudge(theme.wall, 0, 0.03), b: nudge(theme.wall, 0, -0.1) }
       : { kind: "wood", a: plank, b: nudge(plank, 0, -0.06) };
   } else if (indoor && plainFloor && fitout === 2) {
-    out.floor = theme.floor.kind === "terrazzo"
-      ? { kind: "tile", a: nudge(theme.wall, 0, 0.04), b: nudge(theme.trim, 0, 0.2) }
-      : { kind: "terrazzo", a: nudge(theme.wall, 0, -0.04), b: [theme.trim, "#a99c86", "#f4efe6", "#6d665c"] };
+    // the dark branch: charcoal tiles under timber walls
+    const slate = pick(["#3b3c38", "#34383a", "#40392f"], 19);
+    out.floor = { kind: "tile", a: slate, b: nudge(slate, 0, -0.05) };
   }
   if (indoor && ["bulbs", "pendant", "string"].includes(theme.lights) && fitout !== 0) {
     out.lights = theme.lights === "pendant" ? "bulbs" : "pendant";
@@ -510,10 +510,12 @@ function regionalise(theme, regionName) {
     out.wainscot = nudge(theme.trim, 0, -0.08);
     out.wainscotRail = nudge(theme.trim, 0, 0.12);
   }
+  // each fit-out seats people differently: round cafe tables (0), staggered square tables (1),
+  // long communal tables with benches (2), so two branches never share a floor plan
   out.branch = {
-    stagger: pick([0, 0.22, -0.22], 21),
-    square: fitout === 2 || Boolean((h >>> 24) & 1),
-    deep: indoor && fitout === 2,
+    stagger: fitout === 1 ? pick([0.22, -0.22], 21) : 0,
+    square: fitout === 1,
+    communal: indoor && fitout === 2,
   };
   return out;
 }

@@ -137,7 +137,9 @@ main { display: grid; grid-template-columns: minmax(0, 1fr) 352px; gap: 24px; pa
 .stage-tip {
   position: absolute; left: 12px; bottom: 12px; margin: 0; padding: 6px 12px; border-radius: 8px;
   background: rgba(31, 30, 28, .78); color: #fff; font-size: 12px; font-weight: 500; pointer-events: none; max-width: calc(100% - 24px);
+  transition: opacity .4s ease;
 }
+.stage.tip-done .stage-tip { opacity: 0; }
 
 /* ---------- tables ---------- */
 .go-title { display: none; }

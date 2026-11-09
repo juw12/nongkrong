@@ -611,6 +611,10 @@ function setupWorld(module) {
   }
   state.world = world;
   stage.hidden = false;
+  // the walking tip steps aside after the first touch, or on its own after a few seconds
+  const hideTip = () => stage.classList.add("tip-done");
+  stage.addEventListener("pointerdown", hideTip, { once: true });
+  setTimeout(hideTip, 8000);
   $("#main").classList.add("has-world");
   $("#tables").classList.add("chips");
   render();

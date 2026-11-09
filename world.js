@@ -56,6 +56,10 @@ function tableKind(layout, seats, index, variant = {}) {
   if (layout === "street") {
     return "plastic";
   }
+  // a communal branch seats groups of four or more at long shared tables
+  if (variant.communal && seats >= 4) {
+    return "long";
+  }
   return variant.square && seats <= 4 ? "square" : "round";
 }
 
@@ -68,15 +72,14 @@ function seatRing(cx, cz, n, radius, offset) {
   });
 }
 
-// variant (from the city branch): stagger shifts every other row sideways, square swaps small round tables
+// variant (from the city branch): stagger shifts every other row sideways, square swaps small round tables,
+// communal turns tables for four or more into long shared tables with benches
 export function planVenue(layout, tables, variant = {}) {
   const hasBar = layout === "counter";
   const floorTables = hasBar ? tables.slice(1) : tables;
-  // a 'deep' branch puts the same tables in fewer, longer rows: a different floor plan, same seats
-  const baseCols = floorTables.length <= 4 ? 2 : 3;
-  const cols = variant.deep && floorTables.length > 4 ? baseCols - 1 : baseCols;
+  const cols = floorTables.length <= 4 ? 2 : 3;
   const rows = Math.ceil(floorTables.length / cols);
-  const cellW = layout === "bench" || layout === "garden" ? 3.9 : 3.4;
+  const cellW = layout === "bench" || layout === "garden" || variant.communal ? 3.9 : 3.4;
   const cellD = 3.3;
   const width = cols * cellW + 2.2;
   const depth = rows * cellD + 4.8;
@@ -1622,11 +1625,14 @@ function buildPlace(plan, venue, theme, regionName, countryName = "") {
     }
   });
 
-  // the owner minds the counter (no name tag, not a player)
+  // the owner minds the counter: not a player, so a small light "Owner" tag says who they are
   const ownerLooks = { skin: "#b98a68", shirt: theme.shirt, pants: "#3b3a38", hair: "#222120" };
   const owner = makeAvatar(ownerLooks, "", false);
   owner.root.remove(owner.label);
   owner.label.material.map?.dispose();
+  const ownerTag = textSprite("Owner", { color: "#3b3a38", background: "rgba(246,242,234,0.92)", size: 34, weight: 600 });
+  ownerTag.position.y = 1.95;
+  owner.root.add(ownerTag);
   poseStanding(owner, 0, false);
   owner.arms[0].rotation.x = -0.5;
   if (layout === "counter") {
@@ -1656,7 +1662,7 @@ function buildPlace(plan, venue, theme, regionName, countryName = "") {
       steamPuffs.push(node);
     }
   });
-  return { group, lamps, walkers, steamPuffs, keepOut: [sign, ...(ctx.muralMesh ? [ctx.muralMesh] : [])] };
+  return { group, lamps, walkers, steamPuffs, owner: { root: owner.root, tag: ownerTag }, keepOut: [sign, ...(ctx.muralMesh ? [ctx.muralMesh] : [])] };
 }
 
 // ---------- avatars ----------
@@ -1789,6 +1795,7 @@ export function createWorld(container, handlers = {}) {
   let tagRects = [];
   let labelRects = [];
   let keepOutMeshes = [];
+  let ownerInfo = null;
   let steamPuffs = [];
   let scene_ = null;
 
@@ -1889,6 +1896,7 @@ export function createWorld(container, handlers = {}) {
     walkers = built.walkers;
     steamPuffs = built.steamPuffs;
     keepOutMeshes = built.keepOut || [];
+    ownerInfo = built.owner || null;
     scene.add(place);
 
     const span = Math.max(plan.width, plan.depth);
@@ -2453,8 +2461,9 @@ export function createWorld(container, handlers = {}) {
           }
           rect.y = hit.y - (hit.h + rect.h) / 2 - 3;
         }
-        // never push a name or bubble off the top of the view
-        rect.y = Math.max(rect.y, pad + rect.h / 2);
+        // never push a name or bubble off the top of the view; bubbles keep extra room for their frame
+        const topPad = bubble ? pad + 12 : pad;
+        rect.y = Math.max(rect.y, topPad + rect.h / 2);
       };
       if (movable) {
         const startY = rect.y;
@@ -2496,6 +2505,11 @@ export function createWorld(container, handlers = {}) {
       } else {
         anchorWorld.copy(base);
       }
+      // on a phone-sized view only your table and tables with people get a tag; the list below has the rest
+      if (width < 560 && !entry.mine && !entry.sitters) {
+        entry.sprite.visible = false;
+        continue;
+      }
       const spot = place(entry.sprite, anchorWorld, false, !entry.mine, false, "table");
       entry.sprite.visible = Boolean(spot);
       if (spot) {
@@ -2532,6 +2546,17 @@ export function createWorld(container, handlers = {}) {
         anchorWorld.set(world.x, headTop + 0.03, world.z);
         a.stem.position.copy(a.root.worldToLocal(anchorWorld.clone()));
         a.stem.scale.set(0.012 * factor, stemLength, 1);
+      }
+    }
+    // the owner's tag comes after the players' names and is simply hidden when it would crowd them
+    if (ownerInfo) {
+      ownerInfo.root.updateMatrixWorld();
+      ownerInfo.root.getWorldPosition(anchorWorld);
+      anchorWorld.y = 1.95;
+      const spot = place(ownerInfo.tag, anchorWorld, false, true, false, "owner");
+      ownerInfo.tag.visible = Boolean(spot);
+      if (spot) {
+        ownerInfo.tag.position.copy(ownerInfo.root.worldToLocal(spot.clone()));
       }
     }
     const talkers = people.filter((a) => a.bubble).sort((p, q) => q.bubbleUntil - p.bubbleUntil);
