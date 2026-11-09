@@ -1890,6 +1890,7 @@ export function createWorld(container, handlers = {}) {
       }
     });
     scene_ = { country, region, venue: venue.id, layout, theme: theme.id, archetype: theme.archetype };
+    drinksSig = "";
     const built = buildPlace(plan, venue, theme, region, country === "XX" ? "" : findCountry(country)?.name || "");
     place = built.group;
     lamps = built.lamps;
@@ -2060,6 +2061,47 @@ export function createWorld(container, handlers = {}) {
       }
     }
     updateTableLabels(occupancy, myTable);
+  }
+
+  // Drinks on the tables: a cup or glass in front of each person who has been served.
+  const drinksGroup = new THREE.Group();
+  scene.add(drinksGroup);
+  let drinksSig = "";
+  function setDrinks(list) {
+    const sig = JSON.stringify(list || []);
+    if (sig === drinksSig || !plan) {
+      return;
+    }
+    drinksSig = sig;
+    for (const child of [...drinksGroup.children]) {
+      drinksGroup.remove(child);
+      disposeTree(child);
+    }
+    for (const d of list || []) {
+      const t = plan.tables.find((x) => x.n === d.table);
+      const seat = t?.seatsPos?.[d.seat];
+      if (!t || !seat) {
+        continue;
+      }
+      const top = t.topY ?? TABLE_TOP[t.kind] ?? 0.75;
+      const toward = t.kind === "bar" ? 0.55 : 0.42;
+      const x = seat.x + (t.x - seat.x) * toward;
+      const z = t.kind === "bar" ? t.z + 0.12 : seat.z + (t.z - seat.z) * toward;
+      const g = new THREE.Group();
+      if (d.kind === "glass") {
+        const wall = cyl(0.045, 0.038, 0.12, "#e8f1f0", 0, 0.06, 0, 16, { transparent: true, opacity: 0.35 });
+        wall.castShadow = false;
+        g.add(wall);
+        g.add(cyl(0.04, 0.034, 0.09, d.color || "#7a4a26", 0, 0.045, 0, 16));
+      } else {
+        g.add(cyl(0.07, 0.065, 0.01, "#fbf6ec", 0, 0.005, 0, 18));
+        g.add(cyl(0.05, 0.036, 0.07, "#fbf6ec", 0, 0.045, 0, 18));
+        const surface = cyl(0.046, 0.046, 0.004, d.color || "#c9a27a", 0, 0.078, 0, 18);
+        g.add(surface);
+      }
+      g.position.set(x, top, z);
+      drinksGroup.add(g);
+    }
   }
 
   function say(id, text) {
@@ -2659,6 +2701,7 @@ export function createWorld(container, handlers = {}) {
     setVenue,
     sync,
     say,
+    setDrinks,
     setHour(h) {
       hour = h;
       applyHour();

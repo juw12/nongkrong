@@ -41,6 +41,7 @@
 </header>
 
 <nav class="venues" id="venues" aria-label="Places in this city"></nav>
+<div class="roles" id="roles" role="tablist" aria-label="Your role in this place"></div>
 
 <div class="switch" role="tablist" aria-label="View">
   <button type="button" role="tab" id="tabFloor" aria-selected="true">Tables</button>
@@ -91,6 +92,7 @@
         <p id="voiceNote" class="voice-note" hidden></p>
         <ul class="members" id="members" aria-label="People at this table"></ul>
       </div>
+      <div class="order-card" id="orderCard" hidden></div>
       <div class="log" id="log" aria-live="polite" aria-label="Table chat"></div>
       <form class="say" id="sayForm" autocomplete="off">
         <label class="sr" for="sayInput">Message</label>
@@ -100,6 +102,36 @@
       <button id="copyBtn" class="link" type="button">Copy link to this table</button>
     </div>
   </aside>
+
+  <section class="homeview" id="homeView" hidden aria-label="CrewCup home"></section>
+
+  <section class="barview" id="barView" hidden aria-label="Coffee bar">
+    <div class="bar-stage" id="barStage">
+      <div class="bar-hud" id="barHud" hidden>
+        <div class="hud-top"><b id="hudOrder"></b><span id="hudQuality"></span></div>
+        <ol class="hud-steps" id="hudSteps" aria-label="Steps for this drink"></ol>
+      </div>
+      <p class="bar-empty" id="barEmpty">Setting up the bar</p>
+      <div class="hud-bottom">
+        <div class="gauge" id="hudGauge" hidden><i class="zone" id="hudZone"></i><i class="fill" id="hudFill"></i><span id="hudValue"></span></div>
+        <p class="hud-hint" id="hudHint" aria-live="polite"></p>
+        <button class="btn primary hold" id="holdBtn" type="button">Hold</button>
+      </div>
+    </div>
+    <aside class="bar-side" aria-label="Orders">
+      <div class="seg" id="camSeg" role="group" aria-label="Camera"></div>
+      <div class="bar-tools">
+        <button id="soundBtn" class="btn small" type="button" aria-pressed="true">Sound on</button>
+        <button id="skipBtn" class="btn small ghost" type="button">Skip this order</button>
+      </div>
+      <h3 class="tk-title">Orders <span id="ticketCount">0</span></h3>
+      <ul class="tickets" id="tickets"></ul>
+      <p class="fine" id="barToday"></p>
+      <p class="fine">Hold the button, the space bar or the bar itself, and let go inside the green zone. Taps do the rest.</p>
+    </aside>
+  </section>
+
+  <section class="ownerview" id="ownerView" hidden aria-label="Your store"></section>
 </main>
 
 <dialog id="welcome" aria-labelledby="welcomeTitle">

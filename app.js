@@ -1,5 +1,6 @@
 import { COUNTRIES, LAYOUTS, findCountry, findRegion, findVenue, tablesFor, guessPlace } from "./data.js";
 import { openRoom, myId, LOCAL, relayHealth } from "./net.js";
+import { initCafe } from "./cafe.js";
 
 const $ = (selector) => document.querySelector(selector);
 
@@ -110,6 +111,7 @@ function me() {
     seat: state.seat ? state.seat.seat : null,
     since: state.seat ? state.seat.since : 0,
     voice: state.voice.on && !state.voice.muted,
+    role: cafe ? cafe.role : "guest",
   };
   if (!state.seat && state.pos) {
     Object.assign(presence, state.pos);
@@ -148,6 +150,7 @@ function validPresence(p) {
     seat,
     since: Number(p.since) || 0,
     voice: p.voice === true,
+    role: ["guest", "barista", "owner", "home"].includes(p.role) ? p.role : "guest",
   };
   const pos = seat == null ? validPos(p) : null;
   if (pos) {
@@ -222,6 +225,7 @@ function enterRegion(countryCode, regionId) {
     Object.assign(person, pos);
     syncWorld();
   });
+  cafe.attachRegionRoom(room);
   announce();
   syncSelects();
   render();
@@ -292,6 +296,7 @@ function joinTable() {
   const room = openRoom(key);
   state.tableRoom = room;
   state.tableKey = key;
+  cafe.attachTableRoom(room);
   state.atTable = new Map(occupants(state.venue, state.seat.table)
     .filter(([id]) => id !== myId)
     .map(([id, p]) => [id, p.name]));
@@ -591,7 +596,9 @@ function syncWorld() {
   const people = everyone()
     .filter(([, p]) => p.venue === state.venue)
     .map(([id, p]) => ({ id, name: p.name, table: p.table, seat: p.seat, x: p.x, z: p.z, ry: p.ry, voice: p.voice }));
-  world.sync(people, { myId, speaking: state.speaking });
+  const npcs = cafe.npcPeople(people);
+  world.sync([...people, ...npcs], { myId, speaking: state.speaking });
+  world.setDrinks?.(cafe.drinks(npcs));
 }
 
 function setupWorld(module) {
@@ -851,6 +858,7 @@ function render() {
   renderIntro();
   renderTables();
   renderPanel();
+  cafe.render();
   syncWorld();
 }
 
@@ -1049,7 +1057,38 @@ function goTo(countryCode, regionKey, venueId) {
   render();
 }
 
-window.nongkrong = { state, myId, goTo };
+function sitAnywhere() {
+  const t = tablesFor(venue()).find((x) => freeSeat(state.venue, x.n) != null);
+  if (t) {
+    sit(t.n);
+  }
+}
+
+const cafe = initCafe({
+  $,
+  el,
+  toast,
+  store,
+  myId,
+  place: () => (state.country ? { countryCode: state.country, regionId: state.region, regionName: region().name, venue: venue(), tz: region().tz } : null),
+  hour: () => hourIn(region().tz),
+  name: () => state.name || "You",
+  seat: () => state.seat,
+  people: () => everyone(),
+  tables: () => tablesFor(venue()),
+  tableWord: () => country().table,
+  logLine,
+  requestSync: () => syncWorld(),
+  sitAnywhere,
+  onRole: (role) => {
+    announce();
+    if (role === "guest") {
+      showView(state.seat ? "table" : "floor");
+    }
+  },
+});
+
+window.nongkrong = { state, myId, goTo, cafe };
 init();
 // The 3D place loads after the page works, so a slow or missing WebGL never blocks chatting.
 if (!params.has("flat")) {

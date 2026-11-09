@@ -45,6 +45,41 @@ already there, and sit at a table. Text chat and voice stay inside the table.
 - **Block a person.** Block anyone at your table and their messages and voice stop reaching you.
 - **Light and dark theme.** Works on phones, installs as an app (PWA), and the app shell works offline.
 
+## Cafe roles: guest, barista, owner
+
+Every place now has three roles above the 3D view.
+
+- **Guest.** Sit at a table and order from the local menu (Kopi tubruk and Es kopi susu gula aren in Indonesia,
+  Kopi O in Singapore, Ca phe sua da in Vietnam, Flat white in Australia, and so on, priced in the local currency).
+  If another person is behind the bar, your order goes to them over the city room; otherwise your own open store
+  makes it, or the house barista brings it to your table in about 10 to 15 seconds.
+- **Barista (POV coffee ASMR).** A 3D bar station: grinder, portafilter, tamper, espresso machine with a pressure
+  gauge, steam wand, milk pitcher, cups with latte art, iced glasses, a dripper and a gooseneck kettle. Each drink is
+  a sequence of real steps (grind 18 g, tamp about 15 kg, lock in, pull 25 to 30 s, steam to 60 to 65 C, pour, serve).
+  Hold the button, the space bar or the bar itself and let go inside the green zone; taps do the rest. Every step
+  makes its own synthesized sound (grinder whirr, tamp thud, pump hum, steam hiss rising with heat, pour, ice).
+  Three cameras: **Your eyes** (first person, your hands and tools), **Over the shoulder** (you, the machine and
+  the people waiting across the counter with their orders) and **Mix** (close up while you hold a step, wide while
+  you tap). Quality per step sets the cup score and the tip.
+- **Owner.** Open the store and run the day: prices per item (with cost and margin), stock to buy, staff to hire
+  at local wages, rent per place type, an hourly sales chart and day-by-day books. Customers arrive by the hour of
+  the day, your prices and your rating; long queues make people walk out. Customers sit at free tables in the 3D
+  room with their drinks.
+
+### Versions: nongkrong inside CrewCup, or CrewCup inside nongkrong
+
+All combinations run from the same code and are picked with URL parameters. Previews and the verdict:
+[versions.html](https://juw12.github.io/nongkrong/versions.html).
+
+| Parameter | Values | What changes |
+|---|---|---|
+| `host` | `nongkrong` (default), `crewcup` | `crewcup` shows the app as **CrewCup Lounge**: CrewCup header and palette, a Home tab with the daily coffee allowance and "order my usual", allowance as a payment option and team coffee runs for the table |
+| `cam` | `mix` (default), `fp`, `tp` | barista camera |
+| `role` | `guest`, `barista`, `owner`, `home` (CrewCup only) | which role opens first |
+
+"Migii ASMR" was read as the popular POV coffee-making ASMR video style (sound first, hands and tools close up);
+nothing from any channel is copied.
+
 ## How it works (and what that means for privacy)
 
 There is no server and no account.
@@ -66,6 +101,9 @@ There is no server and no account.
 - Voice uses a full mesh between table-mates, which is why tables have 2 to 8 seats.
 - Moderation is personal (Hide). There are no accounts, so there are no bans.
 - Text messages are limited to 400 characters and a few per second.
+- The cafe economy (cash, stock, staff, books) is kept per browser in localStorage; there is no shared ledger and
+  no real money. The CrewCup host is a CrewCup-styled shell of this app, not the CrewCup server: allowance and
+  coffee runs are simulated locally.
 - The 3D view needs WebGL. Without it (or with `?flat=1`) the app falls back to the 2D table plan and still works.
 
 ## Run it yourself
@@ -84,6 +122,8 @@ Then open http://localhost:8000/. Add `?local=1` to try it alone across several 
 ```
 python tests/e2e_local.py    # 3 tabs, local mode: 3D walking synced, tap a 3D table to sit, bubbles only at your
                              # table, table-only chat, full tables, hide, 390/1440 px overflow, JS errors (21 checks)
+python tests/cafe_check.py   # roles: shop maths, owner day, three barista cameras, a real held espresso, a guest
+                             # order brought to the table, CrewCup home (pass a host: nongkrong or crewcup)
 python tests/probe_3d.py     # screenshots of each kind of place by day and night
 python tests/e2e_online.py   # 3 separate browsers over the real Nostr relays with fake microphones
 ```
@@ -98,6 +138,11 @@ Both need Python with Playwright and Chrome or Chromium.
 | `world.js` | the 3D place: venues, furniture, avatars, walking, sitting, bubbles, day and night |
 | `data.js` | countries, regions, time zones, venue types and floor plans |
 | `net.js` | online (Trystero/Nostr) and local (BroadcastChannel) transports |
+| `cafe.js` | roles, ordering, order routing, owner dashboard, CrewCup host |
+| `shop.js` | recipes, local menus and prices, the store simulation and books |
+| `bar.js` | the 3D bar station, hands, cameras and the step game |
+| `asmr.js` | synthesized coffee sounds (Web Audio) |
+| `versions.html`, `versions/` | previews of every host and camera combination |
 | `design.md` | design system: palette, type, banned defaults |
 | `sw.js`, `manifest.webmanifest`, `icon*` | installable app and offline shell |
 
