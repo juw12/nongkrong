@@ -126,6 +126,8 @@ python tests/cafe_check.py   # roles: shop maths, owner day, three barista camer
                              # order brought to the table, CrewCup home (pass a host: nongkrong or crewcup)
 python tests/probe_3d.py     # screenshots of each kind of place by day and night
 python tests/e2e_online.py   # 3 separate browsers over the real Nostr relays with fake microphones
+python tests/cafe_online.py --local   # guest orders, barista acks, makes and serves it (tab-to-tab transport)
+python tests/cafe_online.py --url https://juw12.github.io/nongkrong/   # same over the real relays
 ```
 
 Both need Python with Playwright and Chrome or Chromium.

@@ -602,7 +602,19 @@ export function initCafe(app) {
     if (!c.bar || !c.shop) {
       return;
     }
-    const candidates = c.shop.queue.filter((o) => !o.by);
+    // Keep making the current drink if it is still waiting (the bar reloads on role switches).
+    if (!id && c.making) {
+      const current = c.shop.queue.find((o) => o.id === c.making);
+      if (current) {
+        if (c.bar.snapshot().order?.id !== current.id) {
+          c.bar.start(current);
+        }
+        renderBarSide();
+        return;
+      }
+    }
+    // "you" without c.making means a drink left half made (page reload): it is free to pick up again.
+    const candidates = c.shop.queue.filter((o) => !o.by || o.by === "you");
     const next = id ? c.shop.queue.find((o) => o.id === id) : candidates[0];
     if (!next) {
       c.making = null;
