@@ -65,11 +65,15 @@ const mats = new Map();
 function mat(color, options = {}) {
   const key = color + JSON.stringify(options);
   if (!mats.has(key)) {
-    mats.set(key, new THREE.MeshStandardMaterial({ color, roughness: 0.6, metalness: 0, flatShading: true, ...options }));
+    // Smooth shading reads as real objects; reflections are full on metal and soft on everything else.
+    const material = new THREE.MeshStandardMaterial({ color, roughness: 0.6, metalness: 0, flatShading: false, ...options });
+    material.envMapIntensity = options.envMapIntensity ?? (material.metalness > 0.5 ? 1 : 0.35);
+    mats.set(key, material);
   }
   return mats.get(key);
 }
-const STEEL = { metalness: 0.75, roughness: 0.28, flatShading: false };
+
+const STEEL = { metalness: 0.92, roughness: 0.24, flatShading: false };
 function mesh(geometry, material, x = 0, y = 0, z = 0) {
   const m = new THREE.Mesh(geometry, material);
   m.position.set(x, y, z);
@@ -78,7 +82,7 @@ function mesh(geometry, material, x = 0, y = 0, z = 0) {
   return m;
 }
 const box = (w, h, d, color, x, y, z, o) => mesh(new THREE.BoxGeometry(w, h, d), mat(color, o), x, y, z);
-const cyl = (rt, rb, h, color, x, y, z, seg = 24, o, open = false) => mesh(new THREE.CylinderGeometry(rt, rb, h, seg, 1, open), mat(color, o), x, y, z);
+const cyl = (rt, rb, h, color, x, y, z, seg = 40, o, open = false) => mesh(new THREE.CylinderGeometry(rt, rb, h, seg, 1, open), mat(color, o), x, y, z);
 
 function canvasTex(w, h, draw) {
   const canvas = document.createElement("canvas");
@@ -192,27 +196,87 @@ function person(name, { apron = false } = {}) {
   return g;
 }
 
+// A warm room with three soft boxes, baked once into a reflection map so steel, ceramic and
+// milk pick up believable highlights (three.js core only, no extra files).
+function studioEnvironment(renderer) {
+  try {
+    const room = new THREE.Scene();
+    const shell = new THREE.Mesh(
+      new THREE.BoxGeometry(10, 6, 10),
+      new THREE.MeshBasicMaterial({ color: "#3a3129", side: THREE.BackSide }),
+    );
+    room.add(shell);
+    const panel = (w, h, color, strength, x, y, z, rx = 0, ry = 0) => {
+      const light = new THREE.Mesh(
+        new THREE.PlaneGeometry(w, h),
+        new THREE.MeshBasicMaterial({ color: new THREE.Color(color).multiplyScalar(strength), side: THREE.DoubleSide }),
+      );
+      light.position.set(x, y, z);
+      light.rotation.set(rx, ry, 0);
+      room.add(light);
+    };
+    panel(4, 1.2, "#fff4e2", 6, 0, 2.9, 0, Math.PI / 2);       // ceiling soft box over the bar
+    panel(2.4, 2.2, "#ffe6c4", 3, -4.9, 1.6, 0.5, 0, Math.PI / 2); // window light from the left
+    panel(1.6, 1.6, "#ffd9a8", 2, 3.8, 1.2, -4.9);               // warm lamp behind
+    const pmrem = new THREE.PMREMGenerator(renderer);
+    const map = pmrem.fromScene(room, 0.03).texture;
+    pmrem.dispose();
+    return map;
+  } catch (error) {
+    return null;
+  }
+}
+
 // ---------- hands for the first-person view ----------
 
 function firstPersonHand(side, skin) {
   const g = new THREE.Group();
-  const palm = box(0.075, 0.026, 0.085, skin, 0, 0, 0, { flatShading: false, roughness: 0.75 });
+  const SKIN = { roughness: 0.62, envMapIntensity: 0.25 };
+  // rounded palm: a squashed sphere instead of a box
+  const palm = mesh(new THREE.SphereGeometry(1, 28, 18), mat(skin, SKIN), 0, 0, -0.006);
+  palm.scale.set(0.04, 0.015, 0.047);
   g.add(palm);
+  // knuckle ridge across the back of the hand
+  const knuckles = mesh(new THREE.CapsuleGeometry(0.011, 0.05, 6, 14), mat(skin, SKIN), 0, 0.004, -0.044);
+  knuckles.rotation.z = Math.PI / 2;
+  g.add(knuckles);
+  // four fingers in two segments each, curled a little more towards the little finger
+  const lengths = [0.026, 0.03, 0.028, 0.022];
   for (let i = 0; i < 4; i++) {
-    const finger = mesh(new THREE.CapsuleGeometry(0.0095, 0.045, 4, 8), mat(skin, { flatShading: false, roughness: 0.75 }), -0.027 + i * 0.018, -0.004, -0.062);
-    finger.rotation.x = Math.PI / 2 - 0.35;
-    g.add(finger);
+    const x = (-0.024 + i * 0.016) * side;
+    const curl = 0.32 + i * 0.07;
+    const base = new THREE.Group();
+    base.position.set(x, -0.001, -0.05);
+    base.rotation.x = -curl;
+    const proximal = mesh(new THREE.CapsuleGeometry(0.0085, lengths[i], 6, 12), mat(skin, SKIN), 0, 0, -lengths[i] / 2);
+    proximal.rotation.x = Math.PI / 2;
+    const joint = new THREE.Group();
+    joint.position.set(0, 0, -lengths[i]);
+    joint.rotation.x = -curl * 0.9;
+    const distal = mesh(new THREE.CapsuleGeometry(0.0078, lengths[i] * 0.72, 6, 12), mat(skin, SKIN), 0, 0, -lengths[i] * 0.36);
+    distal.rotation.x = Math.PI / 2;
+    const nail = mesh(new THREE.SphereGeometry(1, 12, 8), mat("#f3d8c6", { roughness: 0.35, envMapIntensity: 0.5 }), 0, 0.006, -lengths[i] * 0.6);
+    nail.scale.set(0.006, 0.002, 0.008);
+    joint.add(distal, nail);
+    base.add(proximal, joint);
+    g.add(base);
   }
-  const thumb = mesh(new THREE.CapsuleGeometry(0.011, 0.04, 4, 8), mat(skin, { flatShading: false, roughness: 0.75 }), 0.045 * side, -0.002, -0.012);
-  thumb.rotation.z = side * 1.1;
-  thumb.rotation.x = 0.5;
-  g.add(thumb);
-  // dark green sleeve, same as the apron, so the arm never reads as a tool
-  const sleeve = cyl(0.036, 0.042, 0.24, "#2d4a3e", 0, 0, 0.21, 14, { flatShading: false, roughness: 0.9 });
+  // thumb from the side of the palm, angled in
+  const thumbBase = new THREE.Group();
+  thumbBase.position.set(0.036 * side, -0.003, -0.012);
+  thumbBase.rotation.set(0.45, 0, side * 1.0);
+  const thumb1 = mesh(new THREE.CapsuleGeometry(0.0105, 0.026, 6, 12), mat(skin, SKIN), 0, -0.018, 0);
+  const thumb2 = mesh(new THREE.CapsuleGeometry(0.0095, 0.02, 6, 12), mat(skin, SKIN), 0, -0.042, -0.004);
+  thumb2.rotation.x = -0.3;
+  thumbBase.add(thumb1, thumb2);
+  g.add(thumbBase);
+  // dark green sleeve, same as the apron, so the arm never reads as a tool; a cuff hides the seam
+  const sleeve = cyl(0.036, 0.042, 0.24, "#2d4a3e", 0, 0, 0.21, 28, { roughness: 0.92, envMapIntensity: 0.15 });
   sleeve.rotation.x = Math.PI / 2;
-  const wrist = cyl(0.027, 0.032, 0.1, skin, 0, 0, 0.07, 12, { flatShading: false, roughness: 0.75 });
+  const cuff = mesh(new THREE.TorusGeometry(0.036, 0.006, 10, 28), mat("#284236", { roughness: 0.9, envMapIntensity: 0.15 }), 0, 0, 0.092);
+  const wrist = cyl(0.025, 0.031, 0.1, skin, 0, 0, 0.07, 24, SKIN);
   wrist.rotation.x = Math.PI / 2;
-  g.add(wrist, sleeve);
+  g.add(wrist, sleeve, cuff);
   return g;
 }
 
@@ -296,6 +360,8 @@ export function createBar(container, handlers = {}) {
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 0.92;
   const canvas = renderer.domElement;
   canvas.className = "bar-canvas";
   canvas.setAttribute("aria-label", "3D coffee bar. Hold the button, the space bar or the view itself to work the current step.");
@@ -304,9 +370,10 @@ export function createBar(container, handlers = {}) {
   const scene = new THREE.Scene();
   scene.background = new THREE.Color("#2b2620");
   scene.fog = new THREE.Fog("#2b2620", 6, 11);
+  scene.environment = studioEnvironment(renderer);
   const camera = new THREE.PerspectiveCamera(48, 1, 0.03, 40);
 
-  scene.add(new THREE.HemisphereLight("#fff3e0", "#4d4238", 1.5));
+  scene.add(new THREE.HemisphereLight("#fff3e0", "#4d4238", 1.2));
   const key = new THREE.DirectionalLight("#fff1d8", 2.0);
   key.position.set(1.4, 3.2, 1.8);
   key.castShadow = true;
@@ -371,7 +438,7 @@ export function createBar(container, handlers = {}) {
   const front = mesh(new THREE.BoxGeometry(2.6, 0.86, 0.06), new THREE.MeshStandardMaterial({ map: tileTex, roughness: 0.7 }), 0, 0.43, -0.56);
   counter.add(front);
   counter.add(box(2.6, 0.86, 1.05, "#5a3d27", 0, 0.43, -0.05));
-  const top = box(2.72, 0.05, 1.18, "#f1efe9", 0, 0.885, -0.05, { flatShading: false, roughness: 0.35 });
+  const top = box(2.72, 0.05, 1.18, "#d8d0c2", 0, 0.885, -0.05, { flatShading: false, roughness: 0.42 });
   counter.add(top);
   // the pass where finished cups wait, on the customer side
   counter.add(box(2.72, 0.04, 0.32, "#3b3a38", 0, 1.18, -0.78, { flatShading: false }));
