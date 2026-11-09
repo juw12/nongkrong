@@ -1,6 +1,6 @@
-// Keeps the app shell available offline. People and messages are never cached.
-const CACHE = "nongkrong-v5";
-const SHELL = ["./", "index.html", "app.css", "app.js", "data.js", "net.js", "world.js", "themes.js", "vendor/trystero-nostr.mjs", "vendor/three.module.min.js",
+﻿// Keeps the app shell available offline. People and messages are never cached.
+const CACHE = "nongkrong-v6";
+const SHELL = ["./", "index.html", "app.css", "app.js", "data.js", "net.js", "world.js", "themes.js", "landmarks.js", "vendor/trystero-nostr.mjs", "vendor/three.module.min.js",
   "icon.svg", "icon-192.png", "icon-512.png", "manifest.webmanifest"];
 
 self.addEventListener("install", (event) => {

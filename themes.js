@@ -498,6 +498,14 @@ function regionalise(theme, regionName) {
     out.deco = deco.map((d) => (d === "slats" ? swap : d)).filter((d, i, all) => all.indexOf(d) === i);
     out.counterBody = fitout === 1 ? "#6b4428" : nudge(theme.trim, 0, -0.18);
   }
+  // the wall itself: plaster (fitout 0), exposed brick (1) or timber boards (2)
+  if (indoor && !theme.wallFinish && fitout === 1) {
+    out.wallFinish = "brick";
+    out.wallFinishColor = pick(["#a4553a", "#9b4a32", "#b0664a"], 13);
+  } else if (indoor && !theme.wallFinish && fitout === 2) {
+    out.wallFinish = "boards";
+    out.wallFinishColor = pick(["#6b4a33", "#5b3f2c", "#7a5639"], 13);
+  }
   if (indoor && fitout === 2) {
     out.wainscot = nudge(theme.trim, 0, -0.08);
     out.wainscotRail = nudge(theme.trim, 0, 0.12);

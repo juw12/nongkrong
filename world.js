@@ -6,6 +6,8 @@
 
 import * as THREE from "./vendor/three.module.min.js";
 import { themeFor } from "./themes.js";
+import { drawLandmark, landmarkFor } from "./landmarks.js";
+import { findCountry } from "./data.js";
 
 const SHIRTS = ["#a63d24", "#2d4a3e", "#c58b2a", "#3d6b8c", "#6f7f34", "#b5652e", "#4f5d63", "#8a5a3b", "#2f6f6a", "#c4573a"];
 const SKINS = ["#f1d9bf", "#e6c09c", "#cf9c72", "#a8754d", "#7a5234"];
@@ -640,10 +642,14 @@ function menuTexture(venue) {
   });
 }
 
-function bunting(group, x0, x1, y, z, colors = ["#a63d24", "#2d4a3e", "#d9a62e", "#f4efe6"]) {
+function bunting(group, x0, x1, y, z, colors = ["#a63d24", "#2d4a3e", "#d9a62e", "#f4efe6"], gap = 0) {
   const count = Math.floor((x1 - x0) / 0.32);
   for (let i = 0; i < count; i++) {
     const x = x0 + (i + 0.5) * ((x1 - x0) / count);
+    // leave the shop sign readable
+    if (Math.abs(x) < gap) {
+      continue;
+    }
     const sag = Math.sin(((i + 0.5) / count) * Math.PI) * 0.18;
     const flag = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.22, 3), mat(colors[i % colors.length], { side: THREE.DoubleSide }));
     flag.position.set(x, y - sag - 0.11, z);
@@ -695,8 +701,8 @@ function signTexture(name, region, sign) {
   });
 }
 
-// A small skyline drawn from the city's name, so each city gets its own street board.
-function cityBoardTexture(city, seed, sign) {
+// The street board: the city's landmark, its name and the country, so you know where you are.
+function cityBoardTexture(city, countryName, seed, sign) {
   return canvasTexture(320, 440, (c, w, h) => {
     c.fillStyle = sign.bg;
     c.fillRect(0, 0, w, h);
@@ -704,25 +710,10 @@ function cityBoardTexture(city, seed, sign) {
     c.globalAlpha = 0.7;
     c.lineWidth = 4;
     c.strokeRect(12, 12, w - 24, h - 24);
-    c.globalAlpha = 0.9;
+    c.globalAlpha = 0.92;
+    drawLandmark(c, landmarkFor(city), w / 2, h * 0.62, w - 70, h * 0.48, sign.fg, sign.bg, seed);
     c.fillStyle = sign.fg;
-    let s = seed || 1;
-    const rand = () => {
-      s = (Math.imul(s, 1103515245) + 12345) >>> 0;
-      return (s >>> 8) / 16777216;
-    };
-    const base = h * 0.62;
-    let x = 30;
-    while (x < w - 30) {
-      const bw = 16 + rand() * 26;
-      const bh = 30 + rand() * 120;
-      c.fillRect(x, base - bh, Math.min(bw, w - 30 - x), bh);
-      if (rand() > 0.72) {
-        c.fillRect(x + bw / 2 - 2, base - bh - 26, 4, 26);
-      }
-      x += bw + 3;
-    }
-    c.fillRect(30, base, w - 60, 4);
+    c.fillRect(30, h * 0.62, w - 60, 4);
     c.globalAlpha = 1;
     c.textAlign = "center";
     c.textBaseline = "middle";
@@ -733,16 +724,117 @@ function cityBoardTexture(city, seed, sign) {
       size -= 2;
       c.font = `600 ${size}px ${FONT}`;
     }
-    c.fillText(label, w / 2, h * 0.76);
-    c.globalAlpha = 0.7;
-    c.font = `500 20px ${FONT}`;
-    c.fillText("you are here", w / 2, h * 0.87);
+    c.fillText(label, w / 2, h * 0.75);
+    if (countryName) {
+      c.globalAlpha = 0.8;
+      let small = 22;
+      c.font = `500 ${small}px ${FONT}`;
+      while (c.measureText(countryName).width > w - 56 && small > 12) {
+        small -= 1;
+        c.font = `500 ${small}px ${FONT}`;
+      }
+      c.fillText(countryName, w / 2, h * 0.86);
+    }
   });
 }
 
-function cityBoard(group, city, theme, x, z) {
+// A framed print of the city's landmark on the back wall: the first thing that says which city this is.
+function muralTexture(city, countryName, theme) {
+  return canvasTexture(640, 352, (c, w, h) => {
+    const paper = "#f3eee4";
+    c.fillStyle = paper;
+    c.fillRect(0, 0, w, h);
+    // a warm sun behind the landmark, in the venue's sign colour
+    c.globalAlpha = 0.22;
+    c.fillStyle = theme.sign.bg;
+    c.beginPath();
+    c.arc(w * 0.68, h * 0.36, h * 0.24, 0, Math.PI * 2);
+    c.fill();
+    c.globalAlpha = 1;
+    const ink = nudgeInk(theme.sign.bg);
+    drawLandmark(c, landmarkFor(city), w * 0.5, h * 0.72, w * 0.84, h * 0.6, ink, paper, theme.seed);
+    c.fillStyle = ink;
+    c.fillRect(w * 0.06, h * 0.72, w * 0.88, 3);
+    c.textAlign = "left";
+    c.textBaseline = "middle";
+    let size = 44;
+    c.font = `700 ${size}px ${FONT}`;
+    const label = city.toUpperCase();
+    while (c.measureText(label).width > w * 0.6 && size > 20) {
+      size -= 2;
+      c.font = `700 ${size}px ${FONT}`;
+    }
+    c.fillText(label, w * 0.06, h * 0.85);
+    if (countryName) {
+      c.font = `500 24px ${FONT}`;
+      c.textAlign = "right";
+      c.globalAlpha = 0.75;
+      c.fillText(countryName, w * 0.94, h * 0.86);
+    }
+  });
+}
+
+// Prints need a dark, readable ink even when the sign colour is pale.
+function nudgeInk(hex) {
+  const value = parseInt(String(hex).slice(1), 16);
+  if (Number.isNaN(value)) {
+    return "#2a2522";
+  }
+  const r = (value >> 16) & 255;
+  const g = (value >> 8) & 255;
+  const b = value & 255;
+  const light = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  if (light < 0.45) {
+    return hex;
+  }
+  const k = 0.45 / light;
+  const part = (v) => Math.round(v * k).toString(16).padStart(2, "0");
+  return `#${part(r)}${part(g)}${part(b)}`;
+}
+
+// Wall finishes: a branch fitted out in brick or timber boards reads differently from plaster.
+function wallFinishTexture(kind, base, width, height) {
+  if (kind === "brick") {
+    return canvasTexture(256, 128, (c, w, h) => {
+      c.fillStyle = "#d8cfc2";
+      c.fillRect(0, 0, w, h);
+      const rows = 8;
+      const bh = h / rows;
+      for (let row = 0; row < rows; row++) {
+        const offset = row % 2 ? 32 : 0;
+        for (let x = -64; x < w; x += 64) {
+          const shade = ((row * 7 + x) % 5) * 0.03;
+          c.fillStyle = shadeHex(base, -0.06 + shade);
+          c.fillRect(x + offset + 2, row * bh + 2, 60, bh - 4);
+        }
+      }
+    }, [width / 2.2, height / 1.1]);
+  }
+  // vertical timber boards
+  return canvasTexture(128, 128, (c, w, h) => {
+    c.fillStyle = base;
+    c.fillRect(0, 0, w, h);
+    for (let i = 0; i < 8; i++) {
+      c.fillStyle = shadeHex(base, (i % 3) * 0.025 - 0.03);
+      c.fillRect(i * 16 + 1, 0, 14, h);
+      c.fillStyle = "rgba(0,0,0,0.18)";
+      c.fillRect(i * 16, 0, 1.5, h);
+    }
+  }, [width / 1.4, 1]);
+}
+
+function shadeHex(hex, amount) {
+  const value = parseInt(String(hex).slice(1), 16);
+  if (Number.isNaN(value)) {
+    return hex;
+  }
+  const part = (v) => Math.max(0, Math.min(255, Math.round(v + amount * 255))).toString(16).padStart(2, "0");
+  return `#${part((value >> 16) & 255)}${part((value >> 8) & 255)}${part(value & 255)}`;
+}
+
+function cityBoard(group, city, countryName, theme, x, z) {
   const board = new THREE.Group();
-  const texture = cityBoardTexture(city, theme.seed, theme.sign);
+  const texture = cityBoardTexture(city, countryName, theme.seed, theme.sign);
   for (const side of [1, -1]) {
     const leaf = new THREE.Mesh(new THREE.PlaneGeometry(0.62, 0.86), new THREE.MeshStandardMaterial({ map: texture, roughness: 0.85 }));
     leaf.position.set(0, 0.5, side * 0.13);
@@ -759,11 +851,14 @@ function cityBoard(group, city, theme, x, z) {
   group.add(board);
 }
 
-function stringLights(group, from, to, bulbs, lamps, color = "#ffcf7a") {
+function stringLights(group, from, to, bulbs, lamps, color = "#ffcf7a", gap = 0) {
   const sag = 0.45;
   for (let i = 0; i <= bulbs; i++) {
     const k = i / bulbs;
     const x = from.x + (to.x - from.x) * k;
+    if (Math.abs(x) < gap) {
+      continue;
+    }
     const z = from.z + (to.z - from.z) * k;
     const y = from.y + (to.y - from.y) * k - Math.sin(k * Math.PI) * sag;
     const bulb = ball(0.06, "#ffe2a8", x, y, z, { emissive: color, emissiveIntensity: 1.2 });
@@ -814,7 +909,12 @@ function addBack(ctx) {
     return;
   }
   const wallH = back === "tent" ? 2.6 : 3.2;
-  group.add(box(width, wallH, 0.2, theme.wall, 0, wallH / 2, backZ - 0.1));
+  if (back === "wall" && theme.wallFinish) {
+    const finish = new THREE.MeshStandardMaterial({ map: wallFinishTexture(theme.wallFinish, theme.wallFinishColor || theme.wall, width, wallH), roughness: 0.92 });
+    group.add(mesh(new THREE.BoxGeometry(width, wallH, 0.2), finish, 0, wallH / 2, backZ - 0.1));
+  } else {
+    group.add(box(width, wallH, 0.2, theme.wall, 0, wallH / 2, backZ - 0.1));
+  }
   group.add(box(width, 0.9, 0.04, theme.trim, 0, 0.45, backZ + 0.02));
   if (back === "wall") {
     for (const side of [-1, 1]) {
@@ -1250,7 +1350,7 @@ function addLights(ctx) {
     for (const x of [-width / 2 + 0.9, width / 2 - 0.9]) {
       wallLamp(x, 2.35, backZ + 0.1);
     }
-    stringLights(group, { x: -width / 2 + 0.2, y: 3.05, z: backZ + 0.15 }, { x: width / 2 - 0.2, y: 3.05, z: backZ + 0.15 }, 18, lamps, theme.lamp);
+    stringLights(group, { x: -width / 2 + 0.2, y: 3.05, z: backZ + 0.15 }, { x: width / 2 - 0.2, y: 3.05, z: backZ + 0.15 }, 18, lamps, theme.lamp, 2.25);
   }
   if (kind === "string" && !indoor) {
     const h = 2.7;
@@ -1271,13 +1371,19 @@ function addDeco(ctx) {
   const { group, theme, width, depth, backZ, plan, lamps } = ctx;
   const wall = theme.back !== "hedge" && theme.back !== "beach";
   const has = (name) => theme.deco.includes(name);
-  const leftX = -width / 2 + 1.5;
+  const shift = ctx.artShift || 0;
+  const leftX = -width / 2 + 1.5 + shift;
+  // the sign spans x = -2.1..2.1 above the counter; left wall art must stay clear of it
+  const clearOfSign = (x, half) => !shift || x + half < -2.25;
   if (has("bunting")) {
-    bunting(group, -width / 2 + 0.3, width / 2 - 0.3, 3.15, backZ + 0.25, theme.bunting);
+    bunting(group, -width / 2 + 0.3, width / 2 - 0.3, 3.15, backZ + 0.25, theme.bunting, wall ? 2.25 : 0);
   }
   if (has("posters") && wall) {
     theme.posters.forEach((color, i) => {
-      const x = leftX - 0.55 + i * 0.6;
+      const x = shift ? -width / 2 + shift + 0.3 + i * 0.6 : leftX - 0.55 + i * 0.6;
+      if (!clearOfSign(x, 0.24)) {
+        return;
+      }
       group.add(box(0.48, 0.66, 0.02, "#f4efe6", x, 1.85, backZ + 0.03));
       group.add(box(0.4, 0.4, 0.025, color, x, 1.92, backZ + 0.04));
       group.add(box(0.3, 0.05, 0.025, "#2a2a28", x, 1.64, backZ + 0.04));
@@ -1299,11 +1405,11 @@ function addDeco(ctx) {
         fan.add(pivot);
       }
       fan.add(mesh(new THREE.TorusGeometry(0.3, 0.012, 6, 24), mat("#8d9194"), 0, 0, 0.2));
-      fan.position.set(x, 2.6, backZ + 0.05);
+      fan.position.set(x, shift && x < 0 ? 2.82 : 2.6, backZ + 0.05);
       group.add(fan);
     }
   }
-  if (has("clock") && wall) {
+  if (has("clock") && wall && clearOfSign(leftX + 1.2, 0.25)) {
     const face = cyl(0.2, 0.2, 0.04, "#f4f1ea", leftX + 1.2, 2.45, backZ + 0.04, 24);
     face.rotation.x = Math.PI / 2;
     group.add(face);
@@ -1315,13 +1421,13 @@ function addDeco(ctx) {
   }
   if (has("frames") && wall) {
     const colors = [theme.trim, "#c58b2a", "#6f7f34", "#3d6b8c"];
-    [-width / 2 + 0.9, -width / 2 + 1.7, width / 2 - 2.4].forEach((x, i) => {
+    [-width / 2 + 0.9 + shift, -width / 2 + 1.7 + shift, width / 2 - 2.4].filter((x) => x > 0 || clearOfSign(x, 0.3)).forEach((x, i) => {
       group.add(box(0.56, 0.44, 0.03, "#2a1d16", x, 1.95 + (i % 2) * 0.12, backZ + 0.03));
       group.add(box(0.46, 0.34, 0.035, colors[i % colors.length], x, 1.95 + (i % 2) * 0.12, backZ + 0.04));
     });
   }
   if (has("mirrors") && wall) {
-    for (const x of [-width / 2 + 1.2, width / 2 - 2.4]) {
+    for (const x of [-width / 2 + 1.2 + shift, width / 2 - 2.4].filter((v) => v > 0 || clearOfSign(v, 0.45))) {
       group.add(box(0.9, 1.2, 0.03, "#c9a050", x, 1.85, backZ + 0.03, { metalness: 0.6 }));
       group.add(box(0.8, 1.1, 0.035, "#cfd8dc", x, 1.85, backZ + 0.045, { metalness: 0.8, roughness: 0.1 }));
     }
@@ -1333,7 +1439,10 @@ function addDeco(ctx) {
   }
   if (has("slats") && wall) {
     for (let i = 0; i < 12; i++) {
-      group.add(box(0.07, 2.2, 0.05, "#b8956a", -width / 2 + 0.5 + i * 0.16, 1.1 + 0.9, backZ + 0.04));
+      const x = -width / 2 + 0.5 + shift + i * 0.16;
+      if (clearOfSign(x, 0.04)) {
+        group.add(box(0.07, 2.2, 0.05, "#b8956a", x, 1.1 + 0.9, backZ + 0.04));
+      }
     }
   }
   if (has("lattice") && wall) {
@@ -1445,11 +1554,27 @@ function addDeco(ctx) {
   }
 }
 
-function buildPlace(plan, venue, theme, regionName) {
+function buildPlace(plan, venue, theme, regionName, countryName = "") {
   const group = new THREE.Group();
   const lamps = [];
   const { width, depth, backZ, layout } = plan;
-  const ctx = { group, lamps, theme, plan, width, depth, backZ };
+  const ctx = { group, lamps, theme, plan, width, depth, backZ, artShift: 0 };
+  // a print of the city's landmark at the left of the back wall; wall art moves along to make room
+  if (regionName && theme.back === "wall") {
+    const muralW = Math.min(3.0, width / 2 - 2.6);
+    if (muralW >= 1.4) {
+      const muralH = muralW * 0.55;
+      const muralX = -width / 2 + 0.3 + muralW / 2;
+      const muralY = 1.78;
+      group.add(box(muralW + 0.1, muralH + 0.1, 0.04, "#2a211b", muralX, muralY, backZ + 0.03));
+      const print = new THREE.Mesh(new THREE.PlaneGeometry(muralW, muralH), new THREE.MeshStandardMaterial({ map: muralTexture(regionName, countryName, theme), roughness: 0.85 }));
+      print.position.set(muralX, muralY, backZ + 0.056);
+      group.add(print);
+      ctx.muralMesh = print;
+      ctx.artShift = muralW + 0.45;
+      ctx.mural = { x: muralX, y: muralY, w: muralW, h: muralH };
+    }
+  }
 
   const ground = mesh(new THREE.PlaneGeometry(width + 40, depth + 40), mat(theme.ground), 0, -0.01, 0, false);
   ground.rotation.x = -Math.PI / 2;
@@ -1477,7 +1602,7 @@ function buildPlace(plan, venue, theme, regionName) {
   group.add(menu);
   if (regionName) {
     const side = theme.mirror ? 1 : -1;
-    cityBoard(group, regionName, theme, side * (width / 2 - 1.5), depth / 2 - 1.5);
+    cityBoard(group, regionName, countryName, theme, side * (width / 2 - 1.5), depth / 2 - 1.5);
   }
 
   if (layout === "counter") {
@@ -1531,7 +1656,7 @@ function buildPlace(plan, venue, theme, regionName) {
       steamPuffs.push(node);
     }
   });
-  return { group, lamps, walkers, steamPuffs };
+  return { group, lamps, walkers, steamPuffs, keepOut: [sign, ...(ctx.muralMesh ? [ctx.muralMesh] : [])] };
 }
 
 // ---------- avatars ----------
@@ -1662,6 +1787,8 @@ export function createWorld(container, handlers = {}) {
   let theme = null;
   let walkers = [];
   let tagRects = [];
+  let labelRects = [];
+  let keepOutMeshes = [];
   let steamPuffs = [];
   let scene_ = null;
 
@@ -1756,11 +1883,12 @@ export function createWorld(container, handlers = {}) {
       }
     });
     scene_ = { country, region, venue: venue.id, layout, theme: theme.id, archetype: theme.archetype };
-    const built = buildPlace(plan, venue, theme, region);
+    const built = buildPlace(plan, venue, theme, region, country === "XX" ? "" : findCountry(country)?.name || "");
     place = built.group;
     lamps = built.lamps;
     walkers = built.walkers;
     steamPuffs = built.steamPuffs;
+    keepOutMeshes = built.keepOut || [];
     scene.add(place);
 
     const span = Math.max(plan.width, plan.depth);
@@ -1843,7 +1971,7 @@ export function createWorld(container, handlers = {}) {
       const free = t.seats - sitters;
       const style = myTable === t.n ? { background: "rgba(166,61,36,0.92)" }
         : free <= 0 ? { background: "rgba(95,91,85,0.85)" }
-        : sitters ? { background: "rgba(45,74,62,0.92)" }
+        : sitters ? { background: "rgba(34,33,32,0.86)" }
         : { background: "rgba(255,255,255,0.92)", color: "#222120" };
       const sprite = textSprite(text, { ...style, size: 36 });
       const base = new THREE.Vector3(t.x, t.kind === "bar" ? 1.3 : t.kind === "low" ? 0.6 : t.kind === "plastic" ? 0.8 : 1.0, t.kind === "bar" ? t.z + 0.1 : t.z);
@@ -1941,17 +2069,12 @@ export function createWorld(container, handlers = {}) {
     a.bubble.userData.lift = 0;
     a.root.add(a.bubble);
     a.bubbleUntil = performance.now() + 4000 + Math.min(6000, text.length * 80);
-    // Keep the two newest bubbles; the full conversation stays in the side panel.
-    const others = [...avatars.values()]
-      .filter((other) => other !== a && other.bubble)
-      .sort((x, y) => y.bubbleUntil - x.bubbleUntil);
-    others.forEach((other, index) => {
-      if (index >= 1) {
+    // Only the newest line floats in the room; the full conversation stays in the side panel.
+    for (const other of avatars.values()) {
+      if (other !== a && other.bubble) {
         other.bubbleUntil = 0;
-      } else {
-        other.bubble.userData.lift += a.bubble.scale.y + 0.05;
       }
-    });
+    }
   }
 
   // ---------- my movement ----------
@@ -2239,6 +2362,33 @@ export function createWorld(container, handlers = {}) {
     anchorScreen.copy(v).project(camera);
     return { x: ((anchorScreen.x + 1) / 2) * width, y: ((1 - anchorScreen.y) / 2) * height, behind: anchorScreen.z > 1 };
   }
+  const boxCorner = new THREE.Vector3();
+  const keepBox = new THREE.Box3();
+  function screenRectOf(object, width, height) {
+    keepBox.setFromObject(object);
+    if (keepBox.isEmpty()) {
+      return null;
+    }
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+    for (let i = 0; i < 8; i++) {
+      boxCorner.set(i & 1 ? keepBox.max.x : keepBox.min.x, i & 2 ? keepBox.max.y : keepBox.min.y, i & 4 ? keepBox.max.z : keepBox.min.z);
+      const p = screenOf(boxCorner, width, height);
+      if (p.behind) {
+        return null;
+      }
+      minX = Math.min(minX, p.x);
+      maxX = Math.max(maxX, p.x);
+      minY = Math.min(minY, p.y);
+      maxY = Math.max(maxY, p.y);
+    }
+    if (maxX < 0 || minX > width || maxY < 0 || minY > height) {
+      return null;
+    }
+    return { x: (minX + maxX) / 2, y: (minY + maxY) / 2, w: maxX - minX, h: maxY - minY };
+  }
   function sizeSprite(sprite, factor) {
     if (!sprite.userData.base) {
       sprite.userData.base = sprite.scale.clone();
@@ -2255,10 +2405,19 @@ export function createWorld(container, handlers = {}) {
     camRight.normalize();
     const placed = [];
     tagRects = [];
-    const hitTest = (r) => placed.find((o) => Math.abs(o.x - r.x) < (o.w + r.w) / 2 + 6 && Math.abs(o.y - r.y) < (o.h + r.h) / 2 + 3);
+    labelRects = [];
+    // The sign and the city print are keep-out areas: tags and bubbles never cover them.
+    for (const keep of keepOutMeshes) {
+      const rect = screenRectOf(keep, width, height);
+      if (rect) {
+        placed.push({ ...rect, keepout: true });
+      }
+    }
+    const overlaps = (o, r) => Math.abs(o.x - r.x) < (o.w + r.w) / 2 + 6 && Math.abs(o.y - r.y) < (o.h + r.h) / 2 + 3;
+    const hitTest = (r, withKeepOut = false) => placed.find((o) => (withKeepOut || !o.keepout) && overlaps(o, r));
 
     // Returns the world position the sprite should take, given where it would sit untouched.
-    function place(sprite, anchor, movable, droppable = false, shrinkNear = false) {
+    function place(sprite, anchor, movable, droppable = false, shrinkNear = false, kind = "name") {
       sizeSprite(sprite, factor);
       const s = screenOf(anchor, width, height);
       if (s.behind) {
@@ -2282,12 +2441,13 @@ export function createWorld(container, handlers = {}) {
       if (w < width - pad * 2) {
         rect.x = Math.min(width - pad - w / 2, Math.max(pad + w / 2, rect.x));
       }
-      if (droppable && (hitTest(rect) || rect.y - rect.h / 2 < pad || rect.y + rect.h / 2 > height - pad)) {
+      if (droppable && (hitTest(rect, true) || rect.y - rect.h / 2 < pad || rect.y + rect.h / 2 > height - pad)) {
         return null;
       }
-      if (movable) {
-        for (let guard = 0; guard < 10; guard++) {
-          const hit = hitTest(rect);
+      const bubble = kind === "bubble";
+      const lift = () => {
+        for (let guard = 0; guard < 12; guard++) {
+          const hit = hitTest(rect, bubble);
           if (!hit) {
             break;
           }
@@ -2295,8 +2455,25 @@ export function createWorld(container, handlers = {}) {
         }
         // never push a name or bubble off the top of the view
         rect.y = Math.max(rect.y, pad + rect.h / 2);
+      };
+      if (movable) {
+        const startY = rect.y;
+        lift();
+        // a bubble that is still over the sign (or was pinned at the top) steps sideways instead
+        const stuck = bubble && hitTest(rect, true);
+        if (stuck && w < width / 2) {
+          const left = stuck.x - stuck.w / 2 - w / 2 - 8;
+          const right = stuck.x + stuck.w / 2 + w / 2 + 8;
+          const options = [left, right].filter((x) => x - w / 2 >= pad && x + w / 2 <= width - pad);
+          if (options.length) {
+            rect.x = options.sort((p, q) => Math.abs(p - s.x) - Math.abs(q - s.x))[0];
+            rect.y = startY;
+            lift();
+          }
+        }
       }
       placed.push(rect);
+      labelRects.push({ kind, x: Math.round(rect.x), y: Math.round(rect.y), w: Math.round(rect.w), h: Math.round(rect.h) });
       const world = anchor.clone().addScaledVector(camRight, (rect.x - s.x) * worldPerPixel);
       world.y += (s.y - (rect.y + offsetY)) / pixelsPerY;
       return world;
@@ -2319,7 +2496,7 @@ export function createWorld(container, handlers = {}) {
       } else {
         anchorWorld.copy(base);
       }
-      const spot = place(entry.sprite, anchorWorld, false, !entry.mine);
+      const spot = place(entry.sprite, anchorWorld, false, !entry.mine, false, "table");
       entry.sprite.visible = Boolean(spot);
       if (spot) {
         const r = placed[placed.length - 1];
@@ -2332,9 +2509,19 @@ export function createWorld(container, handlers = {}) {
     }
 
     const people = [...avatars.values()].sort((p, q) => camera.position.distanceToSquared(p.root.position) - camera.position.distanceToSquared(q.root.position));
+    const nowMs = performance.now();
     for (const a of people) {
       a.root.updateMatrixWorld();
       anchorWorld.set(a.x, a.sitH != null ? a.sitH + 0.06 + 1.12 : 1.95, a.z);
+      // while someone is talking their bubble carries their name, so the name tag steps aside
+      const talking = a.bubble && a.bubbleUntil > nowMs;
+      a.label.visible = !talking;
+      if (talking) {
+        a.stem.visible = false;
+        a.labelWorld = anchorWorld.clone();
+        a.labelWorld.y -= 0.12;
+        continue;
+      }
       const world = place(a.label, anchorWorld, true, false, !a.isMe);
       a.label.position.copy(a.root.worldToLocal(world.clone()));
       a.labelWorld = world;
@@ -2350,8 +2537,7 @@ export function createWorld(container, handlers = {}) {
     const talkers = people.filter((a) => a.bubble).sort((p, q) => q.bubbleUntil - p.bubbleUntil);
     for (const a of talkers) {
       anchorWorld.copy(a.labelWorld);
-      anchorWorld.y += a.label.scale.y / 2 + 0.04;
-      const world = place(a.bubble, anchorWorld, true);
+      const world = place(a.bubble, anchorWorld, true, false, false, "bubble");
       a.bubble.position.copy(a.root.worldToLocal(world.clone()));
     }
   }
@@ -2476,6 +2662,7 @@ export function createWorld(container, handlers = {}) {
         hour,
         scene: scene_,
         tags: tagRects,
+        labels: labelRects,
         canvasSize: { client: [canvas.clientWidth, canvas.clientHeight], buffer: [canvas.width, canvas.height], aspect: +camera.aspect.toFixed(3) },
       };
     },
