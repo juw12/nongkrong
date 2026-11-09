@@ -90,7 +90,7 @@ button, input, select { font: inherit; color: inherit; }
 .btn.ghost:hover { color: var(--ink); background: var(--sunk); }
 .btn.wide { width: 100%; }
 .btn:disabled { cursor: not-allowed; }
-#voiceBtn:disabled { color: var(--muted); background: var(--sunk); border-color: var(--line); }
+#voiceBtn:disabled { color: var(--ink); background: var(--sunk); border-color: var(--line-strong); }
 .link { background: none; border: 0; color: var(--muted); cursor: pointer; padding: 12px 20px; text-align: left; min-height: 44px; font-size: 13px; font-weight: 500; }
 .link:hover { color: var(--ink); text-decoration: underline; }
 
@@ -246,7 +246,7 @@ main.has-world .go-title { display: block; font-size: 22px; margin: 0 0 12px; }
 .say { display: flex; gap: 8px; padding: 12px 20px 4px; border-top: 1px solid var(--line); background: var(--card); }
 .say input { flex: 1; min-width: 0; border: 1px solid var(--line-strong); border-radius: 10px; padding: 10px 14px; min-height: 44px; background: var(--card); }
 .say input::placeholder { color: var(--muted); }
-.say .btn { background: var(--ink); border-color: var(--ink); color: var(--bg); }
+.say .btn { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
 
 /* ---------- dialog ---------- */
 dialog { border: 1px solid var(--line); border-radius: 16px; padding: 0; background: var(--card); color: var(--ink); width: min(480px, calc(100vw - 32px)); box-shadow: 0 24px 60px rgba(31, 30, 28, .18); }

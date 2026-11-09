@@ -752,7 +752,7 @@ function renderPanel() {
   $("#tablePrivate").textContent = `Private to ${table}. Only people sitting here can read and hear you.`;
 
   const voiceBtn = $("#voiceBtn");
-  voiceBtn.textContent = LOCAL ? "Voice: online only" : state.voice.on ? "Turn off voice" : "Turn on voice";
+  voiceBtn.textContent = LOCAL ? "Voice: live only" : state.voice.on ? "Turn off voice" : "Turn on voice";
   voiceBtn.className = LOCAL ? "btn note" : state.voice.on ? "btn on" : "btn primary";
   voiceBtn.disabled = LOCAL;
   voiceBtn.setAttribute("aria-pressed", String(state.voice.on));
