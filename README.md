@@ -13,6 +13,15 @@ already there, and sit at a table. Text chat and voice stay inside the table.
 
 <img src="docs/phone.png" alt="Nongkrong on a phone: the 3D warung above, the table chat below" width="300">
 
+## Get it on your device
+
+- **Windows:** [`Nongkrong-Windows-Setup.exe`](https://github.com/juw12/nongkrong/releases/download/desktop/Nongkrong-Windows-Setup.exe) (no admin needed; if Windows says it protected your PC, choose *More info → Run anyway*), or without installing [`Nongkrong-Windows-Portable.zip`](https://github.com/juw12/nongkrong/releases/download/desktop/Nongkrong-Windows-Portable.zip).
+- **Mac:** [`Nongkrong-macOS-AppleSilicon.dmg`](https://github.com/juw12/nongkrong/releases/download/desktop/Nongkrong-macOS-AppleSilicon.dmg) (M1 and newer) or [`Nongkrong-macOS-Intel.dmg`](https://github.com/juw12/nongkrong/releases/download/desktop/Nongkrong-macOS-Intel.dmg). The first time, macOS blocks it because it is not notarized: **System Settings → Privacy & Security → Open Anyway**.
+- **Android:** [`Nongkrong-android.apk`](https://github.com/juw12/nongkrong/releases/download/android/Nongkrong-android.apk): open the file on the phone and allow your browser to install apps once.
+- **iPhone:** open https://juw12.github.io/nongkrong/ in Safari, tap Share, then **Add to Home Screen**.
+
+The Windows, Mac and Android apps are the web app in its own window ([`desktop/`](desktop/README.md), [`android/`](android/README.md)) and change with it. Each build is opened on GitHub's machines before it is published: on Windows and on a Mac the page loads, the app starts and can store data; on an Android emulator it installs, opens and stays up. They are not code-signed or notarised, and no real phone or PC has run them yet.
+
 ## What it does
 
 - **Walk around in 3D (three.js).** Each place is a small 3D scene you walk through: tap the floor or use WASD and
